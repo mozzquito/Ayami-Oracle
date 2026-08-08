@@ -7,7 +7,7 @@ CMD=$(echo "$INPUT" | jq -r '.tool_input.command // ""' 2>/dev/null)
 
 # === WORKTREE BOUNDARY CHECK ===
 # If running from agents/N, block cd outside worktree AND block push to main
-ROOT="/Users/nat/Code/github.com/laris-co/Nat-s-Agents"
+ROOT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}"
 if [[ "$PWD" =~ $ROOT/agents/([0-9]+) ]]; then
   AGENT_ID="${BASH_REMATCH[1]}"
   MY_WORKTREE="$ROOT/agents/$AGENT_ID"

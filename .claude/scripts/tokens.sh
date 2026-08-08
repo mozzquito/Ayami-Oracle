@@ -1,7 +1,7 @@
 #!/bin/bash
 # Quick token check from statusline.json
 
-ROOT="${CLAUDE_PROJECT_DIR:-/Users/nat/Code/github.com/laris-co/Nat-s-Agents}"
+ROOT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}"
 FILE="$ROOT/ψ/active/statusline.json"
 
 if [ ! -f "$FILE" ]; then

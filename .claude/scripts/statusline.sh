@@ -2,7 +2,7 @@
 # Combined status line: time + date + project + agent + context
 # Outputs: 📊 Opus 4.5 56% | 🕐 08:24 | 13 Jan 2026 | Nat-s-Agents | agent-6
 
-ROOT="${CLAUDE_PROJECT_DIR:-/Users/nat/Code/github.com/laris-co/Nat-s-Agents}"
+ROOT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}"
 FILE="$ROOT/ψ/active/statusline.json"
 
 # Time + Date + Project + Agent

@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(bash:*)",
-      "Bash(gh issue list:*)"
+      "Bash(gh issue list:*)",
+      "Skill(update-config)"
     ],
     "deny": [],
     "ask": []
@@ -18,10 +19,6 @@
           {
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/scripts/agent-identity.sh"
-          },
-          {
-            "type": "command",
-            "command": "cat /Users/nat/.claude/plugins/marketplaces/nat-data-personal/knowledge/oracle-philosophy.md /Users/nat/.claude/plugins/marketplaces/nat-data-personal/knowledge/writing-style.md 2>/dev/null"
           }
         ]
       }
@@ -68,9 +65,9 @@
       }
     ]
   },
-  "extraKnownMarketplaces": {},
   "enabledPlugins": {
     "claude-voice-notify@claude-voice-notify": true
   },
+  "extraKnownMarketplaces": {},
   "spinnerTipsEnabled": false
 }

@@ -13,15 +13,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "say -v 'Kanya' -r 280 'สวัสดีค่ะ พร้อมทำงานแล้ว' &"
+            "command": "nohup say -v 'Kanya' -r 280 'สวัสดีค่ะ พร้อมทำงานแล้ว' >/dev/null 2>&1 & true"
           },
           {
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/scripts/agent-identity.sh"
-          },
-          {
-            "type": "command",
-            "command": "cat /Users/nat/.claude/plugins/marketplaces/nat-data-personal/knowledge/oracle-philosophy.md /Users/nat/.claude/plugins/marketplaces/nat-data-personal/knowledge/writing-style.md 2>/dev/null"
           },
           {
             "type": "command",

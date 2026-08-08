@@ -38,6 +38,10 @@ Thumbs.db
 ψ/incubate/
 ψ/learn/
 
+# Ephemeral brain state
+ψ/active/
+ψ/memory/logs/
+.awaken-state.json
+
 # Context (session scratch)
 ψ-context/
-ψ

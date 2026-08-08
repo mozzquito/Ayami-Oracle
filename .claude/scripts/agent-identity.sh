@@ -2,7 +2,7 @@
 # Agent Identity Detection
 # Model-agnostic - works for Claude Code, z.ai, Codex, Gemini, etc.
 
-ROOT="/Users/nat/Code/github.com/laris-co/Nat-s-Agents"
+ROOT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}"
 export MAW_REPO_ROOT="$ROOT"
 
 # Colors: 1=Yellow 2=Magenta 3=Green 4=Cyan 5=Red Main=Blue
