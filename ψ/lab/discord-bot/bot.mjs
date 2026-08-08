@@ -16,9 +16,13 @@ const {
   DISCORD_BOT_TOKEN,
   ALLOWED_USERS = '',
   TEXT_CHANNEL_ID,
+  REPORT_CHANNEL_ID,
   BRAIN_MODEL = 'gemini-3.6-flash-low',
   HISTORY_LINES = '16',
 } = process.env
+
+const reportChannelEnabled = Boolean(REPORT_CHANNEL_ID) && REPORT_CHANNEL_ID !== 'xxx'
+const SUMMARY_TRIGGERS = ['สรุปงาน', 'สรุปงานให้หน่อย', '/summary', 'summary']
 
 for (const [name, val] of Object.entries({ DISCORD_BOT_TOKEN, TEXT_CHANNEL_ID })) {
   if (!val || val === 'xxx') {
@@ -57,6 +61,20 @@ async function askQuickBrain(userText) {
   return stdout.trim()
 }
 
+// "สรุปงาน" only ever summarizes what was typed in THIS Discord channel (the in-memory
+// `history` array) — it has no visibility into real work done elsewhere (Claude Code
+// sessions, git commits, etc.), so it must say so rather than imply a full status report.
+async function askSummaryBrain() {
+  const recentHistory = history.slice(-historyLimit).join('\n')
+  const prompt = `${PERSONA}\n\nSummarize the conversation below as a short bulleted work summary in Thai (3-6 bullets, no preamble). This is ONLY the Discord chat log — you have no visibility into real work done outside this channel, so do not imply completeness beyond what was actually discussed here.\n\nConversation:\n${recentHistory || '(ยังไม่มีบทสนทนาใน session นี้)'}`
+  const { stdout } = await execFileP(
+    'agy',
+    ['-p', prompt, '--model', BRAIN_MODEL, '--mode', 'plan'],
+    { timeout: 60_000 },
+  )
+  return stdout.trim()
+}
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -83,6 +101,27 @@ client.on('messageCreate', async (msg) => {
   const text = msg.content.trim()
   if (!text) {
     console.log('[msg] empty content after trim — Message Content Intent may not be enabled')
+    return
+  }
+
+  if (SUMMARY_TRIGGERS.includes(text.toLowerCase())) {
+    if (!reportChannelEnabled) {
+      await msg.reply('ยังไม่ได้ตั้งค่า REPORT_CHANNEL_ID ใน .env ค่ะ — สร้างห้องรายงานแล้วใส่ channel ID ก่อนนะคะ')
+      return
+    }
+    try {
+      await msg.channel.sendTyping()
+      const summary = await askSummaryBrain()
+      const reportChannel = await client.channels.fetch(REPORT_CHANNEL_ID)
+      await reportChannel.send(
+        `📋 สรุปงาน (${new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })})\n\n${summary}\n\n` +
+        `_(สรุปจากบทสนทนาในห้องแชทนี้เท่านั้น — ไม่ครอบคลุมงานจริงที่ทำนอกห้อง Discord)_`,
+      )
+      await msg.reply(`ส่งสรุปเข้า <#${REPORT_CHANNEL_ID}> ให้แล้วค่ะ`)
+    } catch (err) {
+      console.error('summary error:', err)
+      await msg.reply(`ขอโทษค่ะ สรุปงานไม่สำเร็จ: ${err.message}`)
+    }
     return
   }
 
