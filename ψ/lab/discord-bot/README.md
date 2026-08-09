@@ -58,6 +58,33 @@ node bot.mjs
 
 If it starts correctly you'll see: `Ayami Discord bot online as <name> — listening in channel <id>`
 
+## Running it persistently (launchd)
+
+Running `node bot.mjs` in a terminal (even with `nohup`) doesn't survive the terminal/shell
+session dying. For 24/7 uptime (so it's always reachable from Boss's phone), it's registered
+as a `launchd` user agent instead:
+
+```bash
+# install / start (also runs automatically on every future login)
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.ayami.discord-bot.plist
+
+# check status
+launchctl print gui/$(id -u)/com.ayami.discord-bot | head -10
+
+# stop + unregister
+launchctl bootoff gui/$(id -u)/com.ayami.discord-bot   # or: launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.ayami.discord-bot.plist
+
+# logs
+tail -f ψ/lab/discord-bot/launchd.out.log   # stdout
+tail -f ψ/lab/discord-bot/launchd.err.log   # stderr
+```
+
+The plist (`~/Library/LaunchAgents/com.ayami.discord-bot.plist`, outside this repo — it's a
+per-machine system config, not project code) sets `RunAtLoad` (starts at login) and
+`KeepAlive.SuccessfulExit=false` (auto-restarts only on crash, not after a clean exit). Uses
+an absolute `node` path (`nvm`-installed, `which node` to find it on a new machine) since
+`launchd` doesn't inherit your shell's `PATH`.
+
 ## Safety notes (same standard as the rest of Ayami's tooling)
 
 - `.env` holds the bot token — never commit it (`.gitignore` already excludes it). If it
