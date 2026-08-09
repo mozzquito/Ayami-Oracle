@@ -9,8 +9,17 @@ import 'dotenv/config'
 import { Client, GatewayIntentBits } from 'discord.js'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
+import { promises as fsp } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const execFileP = promisify(execFile)
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+// moss-life.md already exists as Boss's personal diary (ψ/memory/logs/, gitignored —
+// see 2026-08-09 retro "moss-personal-life-diary"). Diary entries append here directly;
+// this is the only write-capable path in the bot — everything else stays read-only.
+const DIARY_PATH = path.join(__dirname, '../../memory/logs/moss-life.md')
+const DIARY_PHOTOS_DIR = path.join(__dirname, '../../memory/logs/diary-photos')
 
 const {
   DISCORD_BOT_TOKEN,
@@ -23,6 +32,53 @@ const {
 
 const reportChannelEnabled = Boolean(REPORT_CHANNEL_ID) && REPORT_CHANNEL_ID !== 'xxx'
 const SUMMARY_TRIGGERS = ['สรุปงาน', 'สรุปงานให้หน่อย', '/summary', 'summary']
+// Prefix a message with one of these to log it to the diary explicitly. Messages with an
+// image attachment are ALWAYS logged as diary entries too (sending a photo already signals
+// "record this"), even without a prefix — see hasImageAttachment in messageCreate.
+const DIARY_TRIGGER_RE = /^(บันทึก|ไดอารี่|diary)\s*[:\-]?\s*/i
+const DIARY_CATEGORIES = [
+  { emoji: '🍜', label: 'กิน', re: /กิน|ทาน|อาหาร|ข้าว|กาแฟ|ก๋วยเตี๋ยว|อร่อย/ },
+  { emoji: '🛍️', label: 'ซื้อของ', re: /ซื้อ|ช้อป|shopping|จ่ายตลาด/ },
+  { emoji: '🏃', label: 'ออกกำลังกาย', re: /ออกกำลังกาย|วิ่ง|ยิม|เวท|gym|workout|ปั่นจักรยาน/ },
+]
+const DIARY_DEFAULT_CATEGORY = { emoji: '📝', label: 'กิจวัตรประจำวัน' }
+
+function categorizeDiaryText(text) {
+  return DIARY_CATEGORIES.find((c) => c.re.test(text)) || DIARY_DEFAULT_CATEGORY
+}
+
+// Downloads any image attachments, appends one Markdown entry (timestamp, category, text,
+// image links) to moss-life.md. This is the only place bot.mjs writes to disk.
+async function appendDiaryEntry(msg, rawText) {
+  const text = rawText.replace(DIARY_TRIGGER_RE, '').trim()
+  const category = categorizeDiaryText(text)
+  const now = new Date()
+  const dateStr = now.toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' }) // YYYY-MM-DD
+  const timeStr = now.toLocaleTimeString('th-TH', {
+    timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hour12: false,
+  })
+
+  const imageLines = []
+  const imageAttachments = [...msg.attachments.values()].filter((a) => a.contentType?.startsWith('image/'))
+  if (imageAttachments.length > 0) {
+    const dayDir = path.join(DIARY_PHOTOS_DIR, dateStr)
+    await fsp.mkdir(dayDir, { recursive: true })
+    let i = 0
+    for (const att of imageAttachments) {
+      i += 1
+      const ext = path.extname(att.name || '') || '.jpg'
+      const fname = `${timeStr.replace(':', '')}-${i}${ext}`
+      const res = await fetch(att.url)
+      const buf = Buffer.from(await res.arrayBuffer())
+      await fsp.writeFile(path.join(dayDir, fname), buf)
+      imageLines.push(`  ![](diary-photos/${dateStr}/${fname})`)
+    }
+  }
+
+  const line = `- **${timeStr}** ${category.emoji} ${category.label}${text ? `: ${text}` : ''}`
+  await fsp.appendFile(DIARY_PATH, [line, ...imageLines].join('\n') + '\n')
+  return { category, imageCount: imageLines.length }
+}
 
 for (const [name, val] of Object.entries({ DISCORD_BOT_TOKEN, TEXT_CHANNEL_ID })) {
   if (!val || val === 'xxx') {
@@ -99,8 +155,23 @@ client.on('messageCreate', async (msg) => {
   if (!allowedUsers.has(msg.author.id)) return
 
   const text = msg.content.trim()
-  if (!text) {
-    console.log('[msg] empty content after trim — Message Content Intent may not be enabled')
+  const hasImageAttachment = [...msg.attachments.values()].some((a) => a.contentType?.startsWith('image/'))
+
+  if (!text && !hasImageAttachment) {
+    console.log('[msg] empty content, no image attachment — Message Content Intent may not be enabled')
+    return
+  }
+
+  if (hasImageAttachment || DIARY_TRIGGER_RE.test(text)) {
+    try {
+      const { category, imageCount } = await appendDiaryEntry(msg, text)
+      await msg.reply(
+        `บันทึกแล้วค่ะ ${category.emoji} ${category.label}${imageCount ? ` (แนบรูป ${imageCount} รูป)` : ''}`,
+      )
+    } catch (err) {
+      console.error('diary error:', err)
+      await msg.reply(`ขอโทษค่ะ บันทึกไม่สำเร็จ: ${err.message}`)
+    }
     return
   }
 

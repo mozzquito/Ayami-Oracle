@@ -14,6 +14,23 @@ Claude Code. Both are real next steps, not implemented here yet.
 - Answers ordinary chat via `agy -p ... --mode plan` (Gemini Flash, no file/tool access)
 - If the quick-brain decides a request needs real work, it says so honestly instead of
   pretending — there is no live connection to a Claude Code session yet in this version
+- **Logs personal-diary entries straight to disk** (the one write-capable path in the bot):
+  - Message starts with `บันทึก` / `ไดอารี่` / `diary` (colon or dash after it optional), or
+  - Message has an image attachment (photos always count as a diary entry, no prefix needed)
+  - Appends a timestamped line to `ψ/memory/logs/moss-life.md` (Boss's personal diary,
+    gitignored — separate from the dev-work log), auto-tagged 🍜 กิน / 🛍️ ซื้อของ /
+    🏃 ออกกำลังกาย / 📝 กิจวัตรประจำวัน by keyword match on the message text
+  - Any image attachments are downloaded to `ψ/memory/logs/diary-photos/YYYY-MM-DD/` and
+    linked from the diary entry
+
+### Diary examples
+
+| You type in Discord | Ayami logs |
+|---|---|
+| `บันทึก: กินก๋วยเตี๋ยวเจ๊หนึ่ง` | 🍜 กิน: กินก๋วยเตี๋ยวเจ๊หนึ่ง |
+| `ไดอารี่ ซื้อของที่ตลาด` | 🛍️ ซื้อของ: ซื้อของที่ตลาด |
+| photo of the gym + caption "เพิ่งวิ่งเสร็จ" | 🏃 ออกกำลังกาย: เพิ่งวิ่งเสร็จ + saved photo |
+| any photo, no caption | 📝 กิจวัตรประจำวัน + saved photo |
 
 ## Setup — things only you can do (Discord account required)
 
