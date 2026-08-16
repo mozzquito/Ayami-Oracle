@@ -1,0 +1,28 @@
+{
+  "name": "drivedb",
+  "version": "1.0.0",
+  "description": "Personal video/audio transcriber — upload to Google Drive, transcribe with whisper-cpp, search with SQLite FTS5",
+  "type": "module",
+  "main": "dist/cli.js",
+  "bin": {
+    "drivedb": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc && chmod +x dist/cli.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.7.0",
+    "commander": "^13.1.0",
+    "googleapis": "^144.0.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "MIT"
+}
