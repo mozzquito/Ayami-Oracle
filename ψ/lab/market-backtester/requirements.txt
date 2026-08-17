@@ -1,0 +1,10 @@
+yfinance>=0.2.40
+pandas>=2.0
+numpy>=1.24
+tabulate>=0.9  # needed by DataFrame.to_markdown() in report.py
+matplotlib>=3.7  # optional, only needed for --save-chart
+requests>=2.31  # backtester/notify.py — Discord REST API for the cloud (Railway) deployment
+streamlit>=1.38  # dashboard.py — local live-signal dashboard
+plotly>=5.24  # dashboard.py — charts
+redis>=5.0  # trade_store.py — shared trade history between cron and dashboard services
+uvicorn>=0.30  # server.py — runs the dashboard as ASGI (st.App) instead of `streamlit run`, so the /api/log-real-trade webhook route works

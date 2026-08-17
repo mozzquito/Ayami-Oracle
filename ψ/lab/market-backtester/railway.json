@@ -1,0 +1,11 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "builder": "RAILPACK"
+  },
+  "deploy": {
+    "startCommand": "python -m backtester.cloud_run",
+    "cronSchedule": "0 1,7,13,19 * * *",
+    "restartPolicyType": "NEVER"
+  }
+}
