@@ -188,6 +188,34 @@ A non-null `nextCronRunAt` in the response is the only reliable confirmation the
 
 **Local launchd version**: removed in favor of Railway (per decision on 2026-08-11 — usage-based Railway cost accepted, local+cloud found more error-prone to keep in sync than just running one). `run_advise_paper.sh` and `../discord-bot/notify.mjs` are kept in the repo as reference/manual-trigger tools, not part of the active schedule.
 
+## Quick-confirm real trades (Discord ✅/❌ reactions, 2026-08-17)
+
+Boss asked whether the bot could auto-trade real money unattended — declined that specifically
+(no broker API key ever gets held or used to place a real order; a human must always be the one
+who actually executes on their own broker/exchange), but built the safe version of what that
+request was really after: making the *human* step as fast as a tap instead of typing.
+
+- Every fresh ENTER signal now posts as its **own** Discord message (not batched with other
+  events) — a reaction can only attach to one message, so a signal needs a message all to
+  itself to stay unambiguous. Exit/stop/target events (informational only, no action needed)
+  still batch together as before.
+- The message carries a 🔗 link straight to the right Binance trading pair for crypto symbols
+  (`https://www.binance.com/en/trade/{SYMBOL}_USDT?type=spot` — a stable, documented part of
+  Binance's own site routing, not a special API). **No equivalent exists for forex/Exness** —
+  checked before building this (neither Binance nor MT4/MT5 publicly document a deep-link that
+  pre-fills exact order price/quantity), so forex signals just get the plain numbers to enter
+  manually in the Exness/MT5 app.
+- The bot auto-adds ✅/❌ reactions to its own signal messages. Tapping ✅ logs "took this trade"
+  to `moss-real-trades.md` (same file/format as typing `บันทึกเทรด`, plus mirrors to the
+  dashboard's Execution Tracker via the existing webhook bridge); ❌ logs "skipped this signal" —
+  both are pure logging, no broker ever touched.
+- Parsing uses a machine-readable marker line embedded in the message
+  (`[trade-signal:SYMBOL:market:entry=...:stop=...:target=...:size=...]`) rather than trying to
+  regex the Thai prose — `advisor.py` emits it, `ψ/lab/discord-bot/bot.mjs` reads it back out.
+- **What this deliberately does NOT do**: place any real order, hold any broker/exchange API
+  credential, or remove the human from the loop. The whole design constraint was "make
+  confirming fast, never make confirming optional."
+
 ## Live dashboard (`dashboard.py`, Railway service `market-backtester-dashboard`)
 
 A Streamlit app showing live entry/exit signals for the same 9 symbols as the cron loop — independent of the cron's actual running position state (it recomputes each symbol's own strategy signal fresh from current data every load, same math, but doesn't touch `.state/`).

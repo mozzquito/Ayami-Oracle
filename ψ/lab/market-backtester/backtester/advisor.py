@@ -66,6 +66,19 @@ def estimate_min_capital(market: str, price: float, stop_pct: float, risk_pct: f
 class AdviseResult(NamedTuple):
     report: str
     event: bool  # True only when a real entry/exit happened this call — not on HOLD/WAIT
+    is_entry: bool = False  # True only for a fresh ENTER this call — drives the Discord
+    # quick-confirm flow (separate message + reaction prompt), never true for exits
+
+
+# Binance's web trade-page URL for a given pair is a stable, documented part of their site
+# routing (not a special API) — unlike an actual pre-filled-order deep link, which neither
+# Binance nor MT4/MT5 (Exness) expose publicly as of 2026-08-17 (checked before building
+# this). This only saves a navigation tap; the human still places the real order themselves
+# on the broker's own app, which is the point — this tool never touches a broker API key.
+def _quick_action_link(symbol: str, market: str) -> str | None:
+    if market == "crypto":
+        return f"https://www.binance.com/en/trade/{symbol}_USDT?type=spot"
+    return None
 
 
 def _state_path(symbol: str, market: str, strategy: str) -> Path:
@@ -158,6 +171,7 @@ def advise(
     ]
 
     event = False  # flips True only on a real entry/exit this call — drives Discord notify-on-change
+    is_entry = False
     just_exited = False
     if state["in_position"]:
         stop_level = state["stop_level"]
@@ -244,6 +258,7 @@ def advise(
             )
             if allocate > 0:
                 event = True
+                is_entry = True
                 shares = allocate / fill_price
                 gross_cost = shares * fill_price
                 commission = gross_cost * commission_pct
@@ -267,6 +282,15 @@ def advise(
                     lines.append(f"    ตั้ง stop-loss ที่ {stop_level:.5f}")
                 if target_level:
                     lines.append(f"    ตั้ง take-profit ที่ {target_level:.5f}")
+                quick_link = _quick_action_link(symbol, market)
+                if quick_link:
+                    lines.append(f"    🔗 เปิดหน้าเทรด: {quick_link}")
+                lines.append("    ⚡ ถ้าเข้าไม้นี้จริง ตอบ ✅ ใต้ข้อความนี้ — ถ้าข้าม ตอบ ❌ (ไม่ต้องพิมพ์อะไรเพิ่ม)")
+                stop_str = f"{stop_level:.5f}" if stop_level else "none"
+                target_str = f"{target_level:.5f}" if target_level else "none"
+                lines.append(
+                    f"[trade-signal:{symbol}:{market}:entry={fill_price:.5f}:stop={stop_str}:target={target_str}:size={shares:.6f}]"
+                )
             else:
                 lines.append(">>> สัญญาณอยากเข้า LONG แต่คำนวณขนาดออเดอร์ได้ 0 (เช็ค --stop-pct/--risk-pct)")
         else:
@@ -277,4 +301,4 @@ def advise(
     lines.append("-" * 60)
     lines.append(f"เงินทุนเริ่มต้น {state['initial_capital']:,.2f} | เงินสด+มูลค่าถือครองตอนนี้ {state['cash'] + state['shares']*latest_close:,.2f}")
     lines.append(f"[state file: {path}]")
-    return AdviseResult(report="\n".join(lines), event=event)
+    return AdviseResult(report="\n".join(lines), event=event, is_entry=is_entry)

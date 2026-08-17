@@ -138,28 +138,39 @@ def main() -> int:
         if is_in_position(cfg["symbol"], market, cfg["strategy_name"], cfg["capital"]):
             open_counts[market] = open_counts.get(market, 0) + 1
 
-    event_reports = []
+    # ENTER events go out as their own Discord message (not batched with the rest) — each
+    # one carries a ✅/❌ reaction prompt for the quick-confirm flow (see advisor.py's
+    # _quick_action_link + the [trade-signal:...] marker), and a reaction only has ONE
+    # message to attach to, so two entries sharing a message would be unresolvable. Exit/
+    # stop/target events are informational only (no action needed) and stay batched.
+    entry_reports = []
+    other_event_reports = []
     for cfg in SYMBOLS:
         market = cfg["market"]
         cap = MAX_CONCURRENT_POSITIONS.get(market)
         was_open = is_in_position(cfg["symbol"], market, cfg["strategy_name"], cfg["capital"])
         allow_entry = cap is None or open_counts.get(market, 0) < cap
 
-        report, event = advise(**cfg, allow_entry=allow_entry)
+        report, event, is_entry = advise(**cfg, allow_entry=allow_entry)
         print(report)
         print()
         if event:
-            event_reports.append(report)
+            (entry_reports if is_entry else other_event_reports).append(report)
             is_open_now = is_in_position(cfg["symbol"], market, cfg["strategy_name"], cfg["capital"])
             if is_open_now and not was_open:
                 open_counts[market] = open_counts.get(market, 0) + 1
             elif was_open and not is_open_now:
                 open_counts[market] = max(0, open_counts.get(market, 0) - 1)
 
-    if event_reports:
-        message = header + "\n\n" + "\n\n".join(event_reports)
-        send_discord_message(message)
-        print(f"Discord notified — {len(event_reports)} event(s) this run.")
+    for report in entry_reports:
+        send_discord_message(header + "\n\n" + report)
+
+    if other_event_reports:
+        send_discord_message(header + "\n\n" + "\n\n".join(other_event_reports))
+
+    total_events = len(entry_reports) + len(other_event_reports)
+    if total_events:
+        print(f"Discord notified — {len(entry_reports)} entry (individual msgs) + {len(other_event_reports)} other event(s) this run.")
     else:
         print("No events this run (all HOLD/WAIT) — Discord not notified.")
 
