@@ -434,17 +434,19 @@ async function cmdPlay(idStr: string) {
 // Record command
 // ---------------------------------------------------------------------------
 
-async function cmdRecord(options: { name?: string }) {
+async function cmdRecord(options: { name?: string; mic?: boolean }) {
   console.log("drivedb record — screen + audio capture\n");
 
+  const noMic = options.mic === false;
+
   // --- Detect avfoundation devices ---
-  const devices = await detectDevices();
-  printDeviceSummary(devices);
+  const devices = await detectDevices(!noMic);
+  printDeviceSummary(devices, { noMic });
 
   // --- Record ---
   let recordedPath: string | null = null;
   try {
-    recordedPath = await recordToFile(devices);
+    recordedPath = await recordToFile(devices, { noMic });
 
     // --- Process through the same pipeline as upload ---
     const displayName = options.name || `recording_${new Date().toISOString().replace(/[:.]/g, "-")}`;
@@ -541,6 +543,7 @@ program
   .command("record")
   .description("Record screen + audio, then transcribe and upload")
   .option("-n, --name <displayName>", "Custom display name (defaults to auto-generated timestamp)")
+  .option("--no-mic", "Exclude the microphone — capture BlackHole system audio only (requires BlackHole)")
   .action(cmdRecord);
 
 program.parse();

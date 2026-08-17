@@ -37,7 +37,7 @@ export interface DetectedDevices {
  * This command intentionally errors after printing the device list to stderr —
  * that's expected ffmpeg behaviour, not a failure.
  */
-export async function detectDevices(): Promise<DetectedDevices> {
+export async function detectDevices(requireMic: boolean = true): Promise<DetectedDevices> {
   let screenIndex = -1;
   let micIndex = -1;
   let blackholeIndex: number | null = null;
@@ -88,7 +88,7 @@ export async function detectDevices(): Promise<DetectedDevices> {
     );
   }
 
-  if (micIndex === -1) {
+  if (micIndex === -1 && requireMic) {
     throw new Error(
       "No microphone device found (expected a device name containing 'Microphone').",
     );
@@ -151,13 +151,21 @@ function parseDeviceList(
  * Returns the path to the recorded file. The caller is responsible for
  * deleting it after processing.
  *
- * When BlackHole is available, captures both microphone and system audio
- * using two avfoundation inputs mixed via amix.
+ * When BlackHole is available and mic is not excluded, captures both
+ * microphone and system audio using two avfoundation inputs mixed via amix.
  *
- * When BlackHole is NOT available, captures screen + microphone only
- * and prints a one-time suggestion about installing BlackHole.
+ * When `noMic` is set, the microphone is excluded entirely — this requires
+ * BlackHole (there would otherwise be no audio source at all) and captures
+ * screen video + BlackHole system audio only, no mixing needed since there's
+ * a single audio source.
+ *
+ * When BlackHole is NOT available and mic is not excluded, captures screen +
+ * microphone only and prints a one-time suggestion about installing BlackHole.
  */
-export async function recordToFile(devices: DetectedDevices): Promise<string> {
+export async function recordToFile(
+  devices: DetectedDevices,
+  options: { noMic?: boolean } = {},
+): Promise<string> {
   const outputPath = join(tmpdir(), `drivedb_record_${Date.now()}.mp4`);
 
   const args: string[] = [];
@@ -168,7 +176,22 @@ export async function recordToFile(devices: DetectedDevices): Promise<string> {
   // own default rate negotiation works better left alone; the real fix for
   // choppiness is the hardware encoder below.
 
-  if (devices.blackholeIndex !== null) {
+  if (options.noMic) {
+    if (devices.blackholeIndex === null) {
+      throw new Error(
+        "--no-mic requires BlackHole (there would be no audio source at all otherwise). " +
+          "Install it with: brew install blackhole-2ch (requires a reboot to take effect), " +
+          "then run `drivedb record` again without --no-mic to confirm it's detected.",
+      );
+    }
+    // --- Screen video + BlackHole system audio only, no mic ---
+    // Input 0: video from screen, no audio ("none")
+    args.push("-f", "avfoundation", "-i", `${devices.screenIndex}:none`);
+    // Input 1: audio-only from BlackHole (no video — "none")
+    args.push("-f", "avfoundation", "-i", `none:${devices.blackholeIndex}`);
+    // Single audio source — map directly, no amix needed.
+    args.push("-map", "0:v", "-map", "1:a");
+  } else if (devices.blackholeIndex !== null) {
     // --- Two-input capture: screen+mic + BlackHole system audio ---
     // Input 0: video from screen, audio from mic
     args.push("-f", "avfoundation", "-i", `${devices.screenIndex}:${devices.micIndex}`);
@@ -193,6 +216,24 @@ export async function recordToFile(devices: DetectedDevices): Promise<string> {
   // meaningfully reduces load (and upload size). "-2" keeps the height
   // even and preserves aspect ratio.
   args.push("-vf", "scale=1280:-2");
+
+  // Force a constant output frame rate. avfoundation's screen capture
+  // delivers frames at a variable real rate (measured: ~27-29fps on this
+  // machine, not a clean 30) while the container was still declaring a
+  // nominal 30fps (r_frame_rate) baked in from the input side -- this
+  // declared-vs-actual mismatch is what made players (esp. Drive's web
+  // preview, which is less tolerant of variable-frame-rate content than a
+  // native player) stutter/resync during AV playback, which reads as
+  // "choppy audio" even though the audio samples themselves aren't
+  // corrupted (verified via ffprobe: no packet gaps in the audio stream).
+  // "-r 30" here is an OUTPUT option (after -i, before -c:v) that runs
+  // ffmpeg's own frame-rate-conversion filter to duplicate/drop frames as
+  // needed to hit a truly constant 30fps -- this is a different mechanism
+  // from the "-framerate 30" INPUT flag tried and rejected earlier in this
+  // file (that one hinted avfoundation's own capture rate and made duration
+  // accuracy worse; this one normalizes the already-captured, variable-rate
+  // frames into constant output timing without touching the input side).
+  args.push("-r", "30");
 
   // Encode video with Apple's hardware encoder (VideoToolbox) instead of
   // software libx264. At screen-capture resolutions, real-time software
@@ -292,9 +333,13 @@ export async function recordToFile(devices: DetectedDevices): Promise<string> {
 /**
  * Print detected devices and, if BlackHole is missing, a one-time suggestion.
  */
-export function printDeviceSummary(devices: DetectedDevices): void {
+export function printDeviceSummary(devices: DetectedDevices, options: { noMic?: boolean } = {}): void {
   console.log(`📹 Screen capture: device [${devices.screenIndex}]`);
-  console.log(`🎤 Microphone:     device [${devices.micIndex}]`);
+  if (options.noMic) {
+    console.log(`🎤 Microphone:     excluded (--no-mic)`);
+  } else {
+    console.log(`🎤 Microphone:     device [${devices.micIndex}]`);
+  }
 
   if (devices.blackholeIndex !== null) {
     console.log(`🔊 System audio:   device [${devices.blackholeIndex}] (BlackHole)`);

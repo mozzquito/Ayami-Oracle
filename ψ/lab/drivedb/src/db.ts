@@ -52,6 +52,24 @@ export function segmentThai(text: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// FTS5 query sanitization
+// ---------------------------------------------------------------------------
+
+/**
+ * Wrap every individual search token in double quotes so FTS5 always treats
+ * it as a literal phrase term, never as a boolean operator or special syntax.
+ *
+ * Without this, bare AND/OR/NOT keywords, unbalanced quotes, asterisks,
+ * colons, or parentheses in user input crash the process with an uncaught
+ * SqliteError (fts5 syntax error).
+ */
+function sanitizeFtsQuery(text: string): string {
+  const tokens = text.split(/\s+/).filter((t) => t.length > 0);
+  if (tokens.length === 0) return "\"\"";
+  return tokens.map((t) => "\"" + t.replace(/"/g, "\"\"") + "\"").join(" ");
+}
+
+// ---------------------------------------------------------------------------
 // Database init
 // ---------------------------------------------------------------------------
 
@@ -115,6 +133,44 @@ export function initDb(): DB {
     db.exec(`ALTER TABLE files ADD COLUMN tags TEXT`);
   }
 
+  // Migration: add `summary` column to files_fts if missing (idempotent).
+  // FTS5 virtual tables cannot be altered — must drop and recreate with
+  // the new column, then backfill from the existing `files` table.
+  const ftsRow = db.prepare(
+    `SELECT sql FROM sqlite_master WHERE type='table' AND name='files_fts'`,
+  ).get() as { sql: string } | undefined;
+  if (!ftsRow?.sql.includes("summary")) {
+    const migrateFts = db.transaction(() => {
+      db.exec(`DROP TABLE IF EXISTS files_fts`);
+      db.exec(`
+        CREATE VIRTUAL TABLE files_fts
+        USING fts5(transcript, fileName, summary);
+      `);
+      const rows = db
+        .prepare(
+          `SELECT id, transcript, fileName, summary FROM files`,
+        )
+        .all() as {
+        id: number;
+        transcript: string | null;
+        fileName: string;
+        summary: string | null;
+      }[];
+      const insert = db.prepare(
+        `INSERT INTO files_fts (rowid, transcript, fileName, summary) VALUES (?, ?, ?, ?)`,
+      );
+      for (const row of rows) {
+        insert.run(
+          row.id,
+          row.transcript ? segmentThai(row.transcript) : "",
+          segmentThai(row.fileName),
+          row.summary ? segmentThai(row.summary) : "",
+        );
+      }
+    });
+    migrateFts();
+  }
+
   return { db };
 }
 
@@ -169,8 +225,8 @@ export function insertFile(
     ? segmentThai(record.transcript)
     : "";
   db.prepare(
-    `INSERT INTO files_fts (rowid, transcript, fileName) VALUES (?, ?, ?)`,
-  ).run(id, segmentedTranscript, segmentThai(record.fileName));
+    `INSERT INTO files_fts (rowid, transcript, fileName, summary) VALUES (?, ?, ?, ?)`,
+  ).run(id, segmentedTranscript, segmentThai(record.fileName), "");
 
   return getFileById(db, id)!;
 }
@@ -223,17 +279,18 @@ export function searchFiles(
   // can't match the separately-tokenized index (a single Thai word happens
   // to work by coincidence, but phrases would silently fail without this).
   const segmentedQuery = segmentThai(query) || query;
+  const safeQuery = sanitizeFtsQuery(segmentedQuery);
 
   const stmt = db.prepare(`
     SELECT f.id, f.fileName,
-           snippet(files_fts, 0, '«', '»', '…', 32) AS snippet
+           snippet(files_fts, -1, '«', '»', '…', 32) AS snippet
       FROM files_fts AS fts
       JOIN files AS f ON f.id = fts.rowid
       WHERE files_fts MATCH ?
       ORDER BY rank
       LIMIT 20
   `);
-  return stmt.all(segmentedQuery) as SearchResult[];
+  return stmt.all(safeQuery) as SearchResult[];
 }
 
 // ---------------------------------------------------------------------------
@@ -273,6 +330,13 @@ export function updateSummary(
   summary: string,
 ): void {
   db.prepare(`UPDATE files SET summary = ? WHERE id = ?`).run(summary, id);
+  // Keep FTS5 index in sync — segment the summary the same way as
+  // transcript/fileName so Thai word boundaries are tokenized correctly.
+  const segmentedSummary = summary ? segmentThai(summary) : "";
+  db.prepare(`UPDATE files_fts SET summary = ? WHERE rowid = ?`).run(
+    segmentedSummary,
+    id,
+  );
 }
 
 /** Persist tags for a file record. Caller is responsible for normalizing the string. */
