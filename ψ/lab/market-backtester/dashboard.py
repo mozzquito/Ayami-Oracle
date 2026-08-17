@@ -177,9 +177,40 @@ else:
     col2.metric("กำไร/ขาดทุนรวม", f"{total_pnl:+,.2f}")
     col3.metric("Win rate", f"{win_rate:.1f}%")
 
+    # Field has been on every Redis-stored trade since record_trade() first shipped
+    # (trade_store.py), but this fills a default rather than KeyError-ing if an older
+    # trade record on disk somehow predates that field.
+    trades_df["strategy"] = trades_df.get("strategy", "unknown")
+
+    st.markdown("**สรุปผลงานแยกตาม Symbol × Strategy**")
+    breakdown_df = (
+        trades_df.groupby(["symbol", "strategy"], as_index=False)
+        .agg(
+            trades=("pnl", "count"),
+            win_rate=("pnl", lambda s: (s > 0).mean() * 100),
+            total_pnl=("pnl", "sum"),
+            avg_return_pct=("return_pct", "mean"),
+        )
+        .sort_values("total_pnl", ascending=False)
+    )
+    st.dataframe(
+        breakdown_df,
+        width="stretch",
+        hide_index=True,
+        column_config={
+            "symbol": st.column_config.TextColumn("Symbol"),
+            "strategy": st.column_config.TextColumn("Strategy"),
+            "trades": st.column_config.NumberColumn("จำนวนเทรด"),
+            "win_rate": st.column_config.NumberColumn("Win rate %", format="%.1f"),
+            "total_pnl": st.column_config.NumberColumn("กำไร/ขาดทุนรวม", format="%+.2f"),
+            "avg_return_pct": st.column_config.NumberColumn("Return เฉลี่ย %", format="%+.2f"),
+        },
+    )
+
+    st.markdown("**รายการเทรดทั้งหมด**")
     st.dataframe(
         trades_df[
-            ["symbol", "market", "entry_date", "exit_date", "entry_price", "exit_price", "pnl", "return_pct", "exit_reason"]
+            ["symbol", "strategy", "market", "entry_date", "exit_date", "entry_price", "exit_price", "pnl", "return_pct", "exit_reason"]
         ],
         width="stretch",
         hide_index=True,
