@@ -16,7 +16,7 @@ cd "$(dirname "$0")"
 
 ENVIRONMENT_ID="24ed59db-611e-4316-ad53-11dbf45a6531"   # production environment, market-backtester-advise project
 SERVICE_ID="a4ef9c2e-5ec1-41fa-b4b8-f7d92878776c"        # market-backtester-advise service
-CRON_SCHEDULE="0 1,7,13,19 * * *"                        # 01:00/07:00/13:00/19:00 UTC = 08:00/14:00/20:00/02:00 ICT
+CRON_SCHEDULE="0 */2 * * *"                              # every 2h UTC = 12x/day (was 4x/day — crypto's 24/7 market meant a 6h gap left signals stale; see "missing the trade window" 2026-08-17)
 
 echo "== 1/3: deploying code via railway up =="
 cp railway.cron.json railway.json

@@ -216,6 +216,37 @@ request was really after: making the *human* step as fast as a tap instead of ty
   credential, or remove the human from the loop. The whole design constraint was "make
   confirming fast, never make confirming optional."
 
+### "Missing the trade window" fixes (2026-08-17)
+
+Boss reported real slippage/missed entries — by the time he saw a Discord signal and got to
+Binance/Exness, price had moved. Got zcode + agy's independent analysis (both converged on
+notification urgency + check frequency as real factors; zcode additionally quantified the
+latency chain — system pipeline was only ~15-70s, human reaction/click-through was 2-35 min,
+10-100x bigger). Both also proposed a Binance app deep-link that pre-fills price/quantity —
+already confirmed unbuildable (see the quick-confirm section above), so that idea was dropped
+rather than attempted. Four changes shipped:
+
+1. **@mention on ENTER signals** — `notify.py`'s `send_discord_message(mention_owner=True)`
+   prepends a real `<@DISCORD_OWNER_ID>` mention *outside* the message's ```` ``` ```` code
+   fence (Discord does not parse/ping mentions written inside a code block — tested this
+   explicitly, it's a real gotcha). Exit/stop/target events stay unmentioned (informational
+   only, no decision window to rush).
+2. **Cron frequency: 4x/day → every 2 hours (12x/day)** — was `0 1,7,13,19 * * *`, now
+   `0 */2 * * *` in both `railway.cron.json` and `deploy-cron.sh`'s `CRON_SCHEDULE`. Applies to
+   all 9 symbols (crypto and forex) rather than building a second, more complex dual-schedule
+   system — running forex checks more often is harmless (event-only notification logic already
+   means no extra Discord noise from checks that find nothing new).
+3. **Live-price staleness warning** — `advisor.py`'s `_live_price_deviation_warning()` fetches
+   a lightweight near-real-time quote via `yfinance`'s `Ticker(...).fast_info.last_price`
+   (distinct from the daily-bar OHLCV history `advise()` otherwise uses) and appends a ⚠️ line
+   to the ENTER message if the live price has already moved ≥1.5% from the signal's reference
+   price. Best-effort — a quote-fetch failure just means no warning line, never blocks or
+   delays the actual signal.
+4. **Discord send retry** — `send_discord_message()` retries transient failures (network error,
+   5xx, 429) up to 3 extra times with a short backoff before giving up; a permanent error (bad
+   token, bad channel — 4xx other than 429) fails fast without wasting the retry budget, since
+   it'll be the same error every time.
+
 ## Live dashboard (`dashboard.py`, Railway service `market-backtester-dashboard`)
 
 A Streamlit app showing live entry/exit signals for the same 9 symbols as the cron loop — independent of the cron's actual running position state (it recomputes each symbol's own strategy signal fresh from current data every load, same math, but doesn't touch `.state/`).

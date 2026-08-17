@@ -162,8 +162,12 @@ def main() -> int:
             elif was_open and not is_open_now:
                 open_counts[market] = max(0, open_counts.get(market, 0) - 1)
 
+    # ENTER signals are the ones with a real decision-window — @mention so the phone
+    # actually buzzes instead of a silent channel message that's easy to miss (per the
+    # "missing the trade window" report 2026-08-17: human reaction time, not system
+    # latency, was the dominant delay). Exit/stop/target events are informational only.
     for report in entry_reports:
-        send_discord_message(header + "\n\n" + report)
+        send_discord_message(header + "\n\n" + report, mention_owner=True)
 
     if other_event_reports:
         send_discord_message(header + "\n\n" + "\n\n".join(other_event_reports))

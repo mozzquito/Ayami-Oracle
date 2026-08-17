@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 import pandas as pd
+import yfinance as yf
 
 from .config import (
     DEFAULT_CAPITAL,
@@ -79,6 +80,30 @@ def _quick_action_link(symbol: str, market: str) -> str | None:
     if market == "crypto":
         return f"https://www.binance.com/en/trade/{symbol}_USDT?type=spot"
     return None
+
+
+# Threshold above which the live price has moved far enough from the signal's reference
+# price to be worth flagging explicitly, rather than trusting the reader to notice.
+_STALE_PRICE_THRESHOLD_PCT = 1.5
+
+
+def _live_price_deviation_warning(symbol: str, market: str, reference_price: float) -> str | None:
+    """Best-effort staleness check: by the time a signal is read and acted on, the real
+    price may already have moved (added 2026-08-17 after a "missing the trade window"
+    report — yfinance's fast_info is a lightweight near-real-time quote, distinct from the
+    daily-bar OHLCV history advise() otherwise uses). Never blocks or delays the signal
+    itself — a fetch failure here just means no staleness line gets appended, not that the
+    entry recommendation is withheld.
+    """
+    try:
+        ticker = normalize_ticker(symbol, market)
+        live_price = float(yf.Ticker(ticker).fast_info.last_price)
+    except Exception:
+        return None
+    deviation_pct = (live_price / reference_price - 1) * 100
+    if abs(deviation_pct) < _STALE_PRICE_THRESHOLD_PCT:
+        return None
+    return f"    ⚠️ ราคาล่าสุดตอนนี้ {live_price:.5f} (ห่างจากราคาที่สัญญาณคำนวณไว้ {deviation_pct:+.2f}%) — เช็คก่อนว่ายังน่าเข้าไหม"
 
 
 def _state_path(symbol: str, market: str, strategy: str) -> Path:
@@ -282,6 +307,9 @@ def advise(
                     lines.append(f"    ตั้ง stop-loss ที่ {stop_level:.5f}")
                 if target_level:
                     lines.append(f"    ตั้ง take-profit ที่ {target_level:.5f}")
+                staleness_warning = _live_price_deviation_warning(symbol, market, fill_price)
+                if staleness_warning:
+                    lines.append(staleness_warning)
                 quick_link = _quick_action_link(symbol, market)
                 if quick_link:
                     lines.append(f"    🔗 เปิดหน้าเทรด: {quick_link}")
