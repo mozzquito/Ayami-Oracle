@@ -106,7 +106,7 @@ async function showList() {
       : '<table><thead><tr><th>Name</th><th>Format</th><th>Duration</th><th>Created</th><th>Tags</th></tr></thead><tbody>' +
         files.map(f =>
           '<tr style="cursor:pointer" onclick="location.href=\\'?id=' + f.id + '\\'">' +
-            '<td>' + escHtml(f.fileName) + (f.snippet ? '<br><span class="snippet">' + escHtml(f.snippet) + '</span>' : '') + '</td>' +
+            '<td>' + escHtml(f.fileName) + (f.snippet ? '<br><span class="snippet">' + (f.timestamp ? '[' + escHtml(f.timestamp) + '] ' : '') + escHtml(f.snippet) + '</span>' : '') + '</td>' +
             '<td class="mono">' + escHtml(f.format || '-') + '</td>' +
             '<td class="mono">' + escHtml(f.duration || '-') + '</td>' +
             '<td class="mono">' + escHtml((f.createdAt || "").slice(0, 19).replace("T", " ")) + '</td>' +
@@ -243,7 +243,13 @@ export async function startServer(port: number): Promise<void> {
           return;
         }
         const results = searchFiles(dbHandle, q);
-        json(res, results);
+        json(
+          res,
+          results.map((r) => ({
+            ...r,
+            timestamp: r.startMs !== null ? formatMs(r.startMs) : null,
+          })),
+        );
         return;
       }
 

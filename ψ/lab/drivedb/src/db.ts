@@ -267,6 +267,7 @@ export interface SearchResult {
   id: number;
   fileName: string;
   snippet: string;
+  startMs: number | null;
 }
 
 export function searchFiles(
@@ -290,7 +291,21 @@ export function searchFiles(
       ORDER BY rank
       LIMIT 20
   `);
-  return stmt.all(safeQuery) as SearchResult[];
+  const results = stmt.all(safeQuery) as Omit<SearchResult, "startMs">[];
+
+  // Best-effort: find the earliest segment whose raw (unsegmented) text
+  // contains the original query as a substring, so results can show roughly
+  // where in the recording the match came from. segments.text is raw
+  // whisper output (not Thai-word-segmented), so a plain LIKE against the
+  // untouched query is the right comparison here, not the FTS5-sanitized one.
+  const segmentStmt = db.prepare(`
+    SELECT startMs FROM segments WHERE fileId = ? AND text LIKE ? ORDER BY startMs ASC LIMIT 1
+  `);
+  const likePattern = `%${query}%`;
+  return results.map((r) => {
+    const seg = segmentStmt.get(r.id, likePattern) as { startMs: number } | undefined;
+    return { ...r, startMs: seg ? seg.startMs : null };
+  });
 }
 
 // ---------------------------------------------------------------------------

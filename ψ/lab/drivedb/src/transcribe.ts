@@ -63,7 +63,7 @@ export interface TranscribeResult {
  * If the file is not WAV, it will first be converted via ffmpeg.
  * Temp files are always cleaned up.
  */
-export async function transcribe(filePath: string): Promise<TranscribeResult> {
+export async function transcribe(filePath: string, lang: string = "th"): Promise<TranscribeResult> {
   const modelPath = expandPath(WHISPER_MODEL);
 
   if (!existsSync(WHISPER_CLI)) {
@@ -116,7 +116,7 @@ export async function transcribe(filePath: string): Promise<TranscribeResult> {
       "-otxt", // plain text output
       "-ocsv", // CSV timestamps (this whisper-cli build has no -otsv/TSV flag)
       "-of", outputBase, // output file base name
-      // No -l flag — auto-detect language (works for Thai, English, mixed)
+      "-l", lang, // language code; "auto" for auto-detect (whisper-cli's own convention)
     ], {
       timeout: 60 * 60 * 1000, // 1 hour max
     });
