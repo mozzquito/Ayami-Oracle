@@ -229,8 +229,9 @@ rather than attempted. Four changes shipped:
 1. **@mention on ENTER signals** — `notify.py`'s `send_discord_message(mention_owner=True)`
    prepends a real `<@DISCORD_OWNER_ID>` mention *outside* the message's ```` ``` ```` code
    fence (Discord does not parse/ping mentions written inside a code block — tested this
-   explicitly, it's a real gotcha). Exit/stop/target events stay unmentioned (informational
-   only, no decision window to rush).
+   explicitly, it's a real gotcha). ~~Exit/stop/target events stay unmentioned (informational
+   only, no decision window to rush).~~ **Corrected 2026-08-21** — see below, this assumption
+   was wrong.
 2. **Cron frequency: 4x/day → every 2 hours (12x/day)** — was `0 1,7,13,19 * * *`, now
    `0 */2 * * *` in both `railway.cron.json` and `deploy-cron.sh`'s `CRON_SCHEDULE`. Applies to
    all 9 symbols (crypto and forex) rather than building a second, more complex dual-schedule
@@ -246,6 +247,30 @@ rather than attempted. Four changes shipped:
    5xx, 429) up to 3 extra times with a short backoff before giving up; a permanent error (bad
    token, bad channel — 4xx other than 429) fails fast without wasting the retry budget, since
    it'll be the same error every time.
+
+### Exits were still missing the window (2026-08-21)
+
+Boss reported the same problem again, this time with a concrete example: a real BTC
+TAKE-PROFIT exit — the message existed in the logs, correctly formatted, but was **never
+mentioned and batched with other events** as "informational only, no action needed." That
+assumption was wrong: anyone holding a real position alongside the paper signal needs to know
+to *sell* just as urgently as they needed to know to *buy* — missing a sell signal means giving
+back profit (or eating more loss) exactly the way missing a buy signal means missing the entry.
+
+- Exits now get the exact same treatment as entries: individual Discord message, `@mention`,
+  the 🔗 Binance link, a ✅/❌ quick-confirm prompt, and a `[trade-exit:SYMBOL:market:price=...:
+  reason=...:pnl=...]` marker (`advisor.py`; `ψ/lab/discord-bot/bot.mjs` parses it via a new
+  `TRADE_EXIT_RE`, logging "sold"/"didn't sell" the same way `TRADE_SIGNAL_RE` logs "took"/
+  "skipped" an entry).
+- `cloud_run.py` simplified as a result: since `advise()` only ever flips `event=True` on an
+  entry or an exit (no third event type exists), the old two-list "entries get mentioned,
+  everything else batches" split collapsed into one `urgent_reports` list — every event is now
+  individual + mentioned, which is both simpler code and the actually-correct behavior.
+- Also closed an observability gap found while investigating this: the live-price staleness
+  check (above) failed completely silently on error, indistinguishable from "working correctly
+  and just never crossing the threshold" — now logs to stderr either way (`advisor: live-price
+  check for SYMBOL — live=X reference=Y` on success, or the exception on failure), so a future
+  "is this actually running?" question is answerable from `railway logs` instead of guesswork.
 
 ## Live dashboard (`dashboard.py`, Railway service `market-backtester-dashboard`)
 

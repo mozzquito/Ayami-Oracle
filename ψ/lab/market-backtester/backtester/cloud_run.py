@@ -138,43 +138,37 @@ def main() -> int:
         if is_in_position(cfg["symbol"], market, cfg["strategy_name"], cfg["capital"]):
             open_counts[market] = open_counts.get(market, 0) + 1
 
-    # ENTER events go out as their own Discord message (not batched with the rest) — each
-    # one carries a ✅/❌ reaction prompt for the quick-confirm flow (see advisor.py's
-    # _quick_action_link + the [trade-signal:...] marker), and a reaction only has ONE
-    # message to attach to, so two entries sharing a message would be unresolvable. Exit/
-    # stop/target events are informational only (no action needed) and stay batched.
-    entry_reports = []
-    other_event_reports = []
+    # Every ENTER and EXIT goes out as its own Discord message with an @mention — both are
+    # real decision windows for anyone holding a matching real position (2026-08-21: a
+    # TAKE-PROFIT exit was originally batched/unmentioned as "informational only," which
+    # was wrong — missing a sell signal is just as costly as missing a buy one). A reaction
+    # also only has ONE message to attach to, so two events sharing a message would be
+    # unresolvable for the quick-confirm flow anyway. There are no other event types —
+    # advise() only ever flips `event` True on an entry or an exit.
+    urgent_reports = []
     for cfg in SYMBOLS:
         market = cfg["market"]
         cap = MAX_CONCURRENT_POSITIONS.get(market)
         was_open = is_in_position(cfg["symbol"], market, cfg["strategy_name"], cfg["capital"])
         allow_entry = cap is None or open_counts.get(market, 0) < cap
 
-        report, event, is_entry = advise(**cfg, allow_entry=allow_entry)
+        report, event, is_entry, is_exit = advise(**cfg, allow_entry=allow_entry)
         print(report)
         print()
         if event:
-            (entry_reports if is_entry else other_event_reports).append(report)
+            urgent_reports.append(report)
             is_open_now = is_in_position(cfg["symbol"], market, cfg["strategy_name"], cfg["capital"])
             if is_open_now and not was_open:
                 open_counts[market] = open_counts.get(market, 0) + 1
             elif was_open and not is_open_now:
                 open_counts[market] = max(0, open_counts.get(market, 0) - 1)
 
-    # ENTER signals are the ones with a real decision-window — @mention so the phone
-    # actually buzzes instead of a silent channel message that's easy to miss (per the
-    # "missing the trade window" report 2026-08-17: human reaction time, not system
-    # latency, was the dominant delay). Exit/stop/target events are informational only.
-    for report in entry_reports:
+    for report in urgent_reports:
         send_discord_message(header + "\n\n" + report, mention_owner=True)
 
-    if other_event_reports:
-        send_discord_message(header + "\n\n" + "\n\n".join(other_event_reports))
-
-    total_events = len(entry_reports) + len(other_event_reports)
+    total_events = len(urgent_reports)
     if total_events:
-        print(f"Discord notified — {len(entry_reports)} entry (individual msgs) + {len(other_event_reports)} other event(s) this run.")
+        print(f"Discord notified — {total_events} event(s) this run (each its own @mentioned message).")
     else:
         print("No events this run (all HOLD/WAIT) — Discord not notified.")
 

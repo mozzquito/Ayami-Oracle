@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from pathlib import Path
 from typing import NamedTuple
 
@@ -67,8 +68,11 @@ def estimate_min_capital(market: str, price: float, stop_pct: float, risk_pct: f
 class AdviseResult(NamedTuple):
     report: str
     event: bool  # True only when a real entry/exit happened this call — not on HOLD/WAIT
-    is_entry: bool = False  # True only for a fresh ENTER this call — drives the Discord
-    # quick-confirm flow (separate message + reaction prompt), never true for exits
+    is_entry: bool = False  # True only for a fresh ENTER this call
+    is_exit: bool = False  # True only for a fresh EXIT this call (stop/target/signal)
+    # is_entry/is_exit both drive the same urgent-delivery treatment in cloud_run.py
+    # (individual message + @mention + quick-confirm reaction prompt) — both are real
+    # decision windows for anyone holding a matching real position, not just entries.
 
 
 # Binance's web trade-page URL for a given pair is a stable, documented part of their site
@@ -98,8 +102,15 @@ def _live_price_deviation_warning(symbol: str, market: str, reference_price: flo
     try:
         ticker = normalize_ticker(symbol, market)
         live_price = float(yf.Ticker(ticker).fast_info.last_price)
-    except Exception:
+    except Exception as e:
+        # Logged (not just silently swallowed) — this check failing 100% of the time in
+        # production with nothing ever printed would be indistinguishable from it working
+        # correctly and just never crossing the threshold. Found that gap 2026-08-21 while
+        # investigating a "missing the trade window" report and being unable to tell from
+        # logs alone whether staleness checks were even running.
+        print(f"advisor: live-price staleness check failed for {symbol} ({market}): {e}", file=sys.stderr)
         return None
+    print(f"advisor: live-price check for {symbol} — live={live_price:.5f} reference={reference_price:.5f}", file=sys.stderr)
     deviation_pct = (live_price / reference_price - 1) * 100
     if abs(deviation_pct) < _STALE_PRICE_THRESHOLD_PCT:
         return None
@@ -197,6 +208,7 @@ def advise(
 
     event = False  # flips True only on a real entry/exit this call — drives Discord notify-on-change
     is_entry = False
+    is_exit = False
     just_exited = False
     if state["in_position"]:
         stop_level = state["stop_level"]
@@ -221,6 +233,7 @@ def advise(
         if exit_reason:
             just_exited = True
             event = True
+            is_exit = True
             shares = state["shares"]
             cost_basis = state["cost_basis"]
             gross_proceeds = shares * exit_price
@@ -256,6 +269,15 @@ def advise(
             lines.append(f">>> {label} ที่ {exit_price:.5f} — ปิดสถานะ")
             lines.append(f"    กำไร/ขาดทุน: {pnl:+,.2f} ({return_pct*100:+.2f}%)")
             lines.append(f"    เงินสดคงเหลือ: {state['cash']:,.2f}")
+            # Originally treated as "informational only" — wrong. Anyone actually holding a
+            # real position alongside the paper signal needs to know to sell just as urgently
+            # as they needed to know to buy (2026-08-21: Boss reported a real TAKE-PROFIT exit
+            # this same shape, missed because it wasn't mentioned/individually delivered).
+            quick_link = _quick_action_link(symbol, market)
+            if quick_link:
+                lines.append(f"    🔗 เปิดหน้าเทรด: {quick_link}")
+            lines.append("    ⚡ ถ้าขายไม้นี้จริงแล้ว ตอบ ✅ ใต้ข้อความนี้ — ถ้ายังไม่ได้ขาย ตอบ ❌")
+            lines.append(f"[trade-exit:{symbol}:{market}:price={exit_price:.5f}:reason={exit_reason}:pnl={pnl:+.2f}]")
         else:
             unrealized = state["shares"] * latest_close - state["cost_basis"]
             lines.append(f"สถานะ: ถือ LONG อยู่ (เข้าเมื่อ {state['entry_date']} ที่ {state['entry_price']:.5f})")
@@ -329,4 +351,4 @@ def advise(
     lines.append("-" * 60)
     lines.append(f"เงินทุนเริ่มต้น {state['initial_capital']:,.2f} | เงินสด+มูลค่าถือครองตอนนี้ {state['cash'] + state['shares']*latest_close:,.2f}")
     lines.append(f"[state file: {path}]")
-    return AdviseResult(report="\n".join(lines), event=event, is_entry=is_entry)
+    return AdviseResult(report="\n".join(lines), event=event, is_entry=is_entry, is_exit=is_exit)

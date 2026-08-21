@@ -89,6 +89,10 @@ const AFFILIATE_TRIGGER_RE = /^(โปรโมท|affiliate|ขายของ)
 // requiring a second data channel — one message, one marker, one unambiguous reaction target
 // (cloud_run.py sends each entry as its own message specifically so this holds).
 const TRADE_SIGNAL_RE = /\[trade-signal:([A-Z]+):(\w+):entry=([\d.]+):stop=([\d.]+|none):target=([\d.]+|none):size=([\d.]+)\]/
+// Same pattern for EXIT signals (2026-08-21: originally exits weren't mentioned/individually
+// delivered at all, treated as "informational only" — wrong, missing a sell signal is just as
+// costly as missing a buy one. See backtester/advisor.py's [trade-exit:...] line).
+const TRADE_EXIT_RE = /\[trade-exit:([A-Z]+):(\w+):price=([\d.]+):reason=(\w+):pnl=([+-][\d.]+)\]/
 // Strips invisible Unicode that Thai mobile IMEs sometimes inject (ZWJ, variation
 // selectors, zero-width spaces, etc.). Applied ONCE before all trigger checks so
 // no invisible prefix can dodge the ^ anchor.
@@ -196,6 +200,23 @@ async function appendReactionTradeEntry(signal, confirmed) {
     (signal.target !== 'none' ? ` target=${signal.target}` : '') +
     ` size=${signal.size}`
   const status = confirmed ? '💰 เทรดจริง (ยืนยันผ่าน reaction ✅)' : '⏭️ ข้ามสัญญาณ (reaction ❌)'
+  const line = `- **${timeStr}** ${status}: ${detail}`
+  await fsp.appendFile(TRADE_PATH, line + '\n')
+  if (confirmed) await pushTradeToWebhook(detail, signal.symbol)
+}
+
+// Same flow as appendReactionTradeEntry, for EXIT signals (2026-08-21). ✅ means "sold this
+// for real too," ❌ means "didn't sell in time" — that second case is exactly the data point
+// that would have surfaced the missed-exit problem sooner if it had been tracked from day one.
+async function appendReactionTradeExit(signal, confirmed) {
+  const now = new Date()
+  const dateStr = now.toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' })
+  const timeStr = now.toLocaleTimeString('th-TH', {
+    timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hour12: false,
+  })
+  const reasonLabel = { stop: 'stop-loss', target: 'take-profit', signal: 'สัญญาณออก' }[signal.reason] || signal.reason
+  const detail = `${signal.symbol} (${signal.market}) exit=${signal.price} (${reasonLabel}) pnl=${signal.pnl}`
+  const status = confirmed ? '💰 ขายจริงแล้ว (ยืนยันผ่าน reaction ✅)' : '⏭️ ยังไม่ได้ขาย (reaction ❌)'
   const line = `- **${timeStr}** ${status}: ${detail}`
   await fsp.appendFile(TRADE_PATH, line + '\n')
   if (confirmed) await pushTradeToWebhook(detail, signal.symbol)
@@ -544,7 +565,7 @@ client.on('messageCreate', async (msg) => {
       msg.author.id === client.user.id &&
       reportChannelEnabled &&
       msg.channel.id === REPORT_CHANNEL_ID &&
-      TRADE_SIGNAL_RE.test(msg.content)
+      (TRADE_SIGNAL_RE.test(msg.content) || TRADE_EXIT_RE.test(msg.content))
     ) {
       try {
         await msg.react('✅')
@@ -691,23 +712,34 @@ client.on('messageReactionAdd', async (reaction, user) => {
   const msg = reaction.message
   if (!reportChannelEnabled || msg.channel.id !== REPORT_CHANNEL_ID) return
 
-  const match = TRADE_SIGNAL_RE.exec(msg.content)
-  if (!match) return // not a trade-signal message — ignore (diary/summary/etc. reactions)
+  const entryMatch = TRADE_SIGNAL_RE.exec(msg.content)
+  const exitMatch = !entryMatch ? TRADE_EXIT_RE.exec(msg.content) : null
+  if (!entryMatch && !exitMatch) return // not a trade-signal/exit message — ignore (diary/summary/etc. reactions)
 
   const dedupeKey = `${msg.id}:${reaction.emoji.name}`
   if (processedSignals.has(dedupeKey)) return
   processedSignals.add(dedupeKey)
 
-  const [, symbol, market, entry, stop, target, size] = match
   const confirmed = reaction.emoji.name === '✅'
 
   try {
-    await appendReactionTradeEntry({ symbol, market, entry, stop, target, size }, confirmed)
-    await msg.channel.send(
-      confirmed
-        ? `<@${user.id}> ✅ บันทึกว่าเข้าไม้ ${symbol} จริงแล้วค่ะ`
-        : `<@${user.id}> ⏭️ บันทึกว่าข้ามสัญญาณ ${symbol} แล้วค่ะ`,
-    )
+    if (entryMatch) {
+      const [, symbol, market, entry, stop, target, size] = entryMatch
+      await appendReactionTradeEntry({ symbol, market, entry, stop, target, size }, confirmed)
+      await msg.channel.send(
+        confirmed
+          ? `<@${user.id}> ✅ บันทึกว่าเข้าไม้ ${symbol} จริงแล้วค่ะ`
+          : `<@${user.id}> ⏭️ บันทึกว่าข้ามสัญญาณ ${symbol} แล้วค่ะ`,
+      )
+    } else {
+      const [, symbol, market, price, reason, pnl] = exitMatch
+      await appendReactionTradeExit({ symbol, market, price, reason, pnl }, confirmed)
+      await msg.channel.send(
+        confirmed
+          ? `<@${user.id}> ✅ บันทึกว่าขาย ${symbol} จริงแล้วค่ะ`
+          : `<@${user.id}> ⏭️ บันทึกว่ายังไม่ได้ขาย ${symbol} แล้วค่ะ`,
+      )
+    }
   } catch (err) {
     console.error('reaction trade-log error:', err)
     processedSignals.delete(dedupeKey) // allow retry — the log write itself failed
