@@ -73,6 +73,10 @@ class AdviseResult(NamedTuple):
     # is_entry/is_exit both drive the same urgent-delivery treatment in cloud_run.py
     # (individual message + @mention + quick-confirm reaction prompt) — both are real
     # decision windows for anyone holding a matching real position, not just entries.
+    signal_now: int = 0  # this bar's raw strategy signal (1=bullish,0=flat), exposed so
+    # cloud_run.py's news-sentiment overlay (backtester/sentiment.py) can check alignment
+    # against the SAME technical signal already computed here, instead of paying for and
+    # calling a second, redundant indicator API.
 
 
 # Binance's web trade-page URL for a given pair is a stable, documented part of their site
@@ -351,4 +355,4 @@ def advise(
     lines.append("-" * 60)
     lines.append(f"เงินทุนเริ่มต้น {state['initial_capital']:,.2f} | เงินสด+มูลค่าถือครองตอนนี้ {state['cash'] + state['shares']*latest_close:,.2f}")
     lines.append(f"[state file: {path}]")
-    return AdviseResult(report="\n".join(lines), event=event, is_entry=is_entry, is_exit=is_exit)
+    return AdviseResult(report="\n".join(lines), event=event, is_entry=is_entry, is_exit=is_exit, signal_now=signal_now)

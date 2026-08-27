@@ -136,7 +136,16 @@ Estimates the minimum account size for `--sizing fractional` to stay meaningful,
 
 Runs `python -m backtester.cloud_run` — loops **9 paper-trade positions** (no real money) through `book_rsi_ma_mtf`: BTC, ETH, SOL, TRX, BNB, NEAR (crypto) and EURUSD, GBPUSD, AUDUSD (forex), 24/7 in the cloud (doesn't depend on any local machine being on). Symbols were picked by actually running the strategy's live signal / historical return / % time bullish against real candidates and keeping the strongest — not guessed (see `ψ/memory/retrospectives/` or session history). Symbol list + params live in `backtester/cloud_run.py`'s `SYMBOLS`.
 
-- **Project**: `market-backtester-advise` on Railway (`mozzquito's Projects` workspace) — **3 services** now: `market-backtester-advise` (the cron job), `market-backtester-dashboard` (live web dashboard, see below), `Redis` (shared trade history between them).
+**⚠️ Rebuilt from scratch 2026-08-27** — the original `mozzquito's Projects` workspace
+(and everything in it: this cron service, the dashboard, and the Redis trade-history
+store) was deleted at some point before this date, discovered while trying to deploy the
+sentiment overlay below. All position state and trade history from before this date is
+gone; the numbers below (IDs, project name) are the new project's, not the original's.
+Every ID embedded in `deploy-cron.sh` and this README's GraphQL examples was updated to
+match. If Discord notifications had gone quiet for a while before 2026-08-27 without
+anyone noticing, this is why.
+
+- **Project**: `market-backtester-advise` on Railway (`พงษ์เชษฐ ภูษณวรรณ's Projects` workspace) — **3 services** now: `market-backtester-advise` (the cron job), `market-backtester-dashboard` (live web dashboard, see below), `Redis` (shared trade history between them).
 - **Schedule**: `deploy.cronSchedule` = `"0 1,7,13,19 * * *"` (01:00/07:00/13:00/19:00 UTC = 08:00/14:00/20:00/02:00 ICT — 4x/day). Railway cron: min 5-minute resolution, times not guaranteed to the minute.
 - **State persistence**: a 500MB volume mounted at `/data`, `BACKTESTER_STATE_DIR=/data/.state` env var (see `advisor.py`) — one JSON file per symbol, holds live position state (in_position, entry price, stop/target). This volume is **exclusive to the cron service** — Railway volumes are single-service, which is why trade *history* (for the dashboard) goes through Redis instead (see below).
 - **Discord notification is event-only**: `advise()` returns `(report, event)` — `event` is `True` only on a real entry/exit/stop/target this call, never on unchanged HOLD/WAIT. `cloud_run.py` collects just the event reports into one consolidated message and calls `backtester/notify.py` (pure Python, Discord REST API) directly — running more often doesn't mean more Discord noise.
@@ -187,6 +196,56 @@ A non-null `nextCronRunAt` in the response is the only reliable confirmation the
 2. **Heartbeat watchdog** — `cloud_run.py` calls `trade_store.record_heartbeat()` once at the end of every successful run (writes a Unix timestamp to Redis). The dashboard checks it on every page load: green caption if the last run was within 8h (2x the max gap between scheduled runs), a loud `st.error` banner if it's been silent longer than that, and a distinct warning if no heartbeat has ever been recorded at all. This is the layer that catches the *exact* failure mode that caused the 3-day silence — the schedule going dead silently sometime *between* deploys, which a deploy-time check alone can never see.
 
 **Local launchd version**: removed in favor of Railway (per decision on 2026-08-11 — usage-based Railway cost accepted, local+cloud found more error-prone to keep in sync than just running one). `run_advise_paper.sh` and `../discord-bot/notify.mjs` are kept in the repo as reference/manual-trigger tools, not part of the active schedule.
+
+## Thai news sentiment overlay (2026-08-27)
+
+Ported from the standalone `ψ/lab/crypto-signal-digest` Node.js prototype into plain
+`requests` calls (`backtester/sentiment.py`) so the cron deployment stays single-runtime —
+same rationale as `notify.py` already documents (no Node dependency in the Railway image).
+
+**What it does**: scrapes real Thai financial headlines (Firecrawl: Kaohoon + Thairath
+Money — two other sources from the original plan didn't survive contact with reality,
+see `sentiment.py`'s own comments), classifies sentiment per headline (OpenRouter/
+DeepSeek), and checks whether that sentiment *aligns* with this system's own already-
+computed technical signal for a watched crypto symbol (BTC/ETH/SOL/TRX/BNB/NEAR).
+
+**Deliberately does NOT call TAAPI.io** (used in the standalone prototype) — this system
+already computes real RSI/MACD from real price data it fetches anyway (`indicators.py`),
+so a second paid indicator API would be redundant. `advisor.py`'s `AdviseResult` now
+exposes the raw `signal_now` (1=bullish/0=flat) it already calculates, purely so
+`cloud_run.py` can pass it to the overlay without re-deriving it.
+
+**Fully isolated from the trading loop** — `cloud_run.py` wraps the entire overlay call in
+its own `try/except Exception`. A broken scrape, a rate-limited LLM call, or any other
+failure in `sentiment.py` gets logged and swallowed; it can never interrupt or delay the
+actual entry/exit signal pipeline above it.
+
+**Separate Discord channel, by explicit choice (มอส, 2026-08-27)**: posts to
+`SENTIMENT_CHANNEL_ID` (the `crypto-signal-digest` server's `general` channel), not
+`REPORT_CHANNEL_ID` — kept deliberately apart from real trade-signal notifications rather
+than mixed in.
+
+**✅ Deployed 2026-08-27** to the rebuilt Railway project (see "Automated paper-trading
+loop" below for why it's a rebuild) — `FIRECRAWL_API_KEY`, `OPENROUTER_API_KEY`, and
+`SENTIMENT_CHANNEL_ID` are set on `market-backtester-advise`, `./deploy-cron.sh` ran clean,
+`nextCronRunAt` confirmed non-null. Verified locally first (real Firecrawl/OpenRouter/
+Discord calls, scratch `BACKTESTER_STATE_DIR` so no position state was touched); the first
+*live* cron run hadn't fired yet as of this deploy (next run 2026-08-27 04:00 UTC) — check
+`railway logs --service market-backtester-advise` after that time to confirm the overlay
+behaved the same in production as it did locally.
+
+**⚠️ Regulatory risk, not resolved, deliberately deferred**: the requirement review before
+building this (zcode + agy, 2026-08-27) found that surfacing "HIGH CONVICTION" alignment
+labels to anyone beyond the account owner likely requires an SEC Thailand securities-
+advisory license (Securities Act B.E. 2535), with potential Digital Asset Business Decree
+exposure for crypto-specific signals. มอส's explicit decision was to keep the original
+wording and accept the risk for this personal/paper-trade use — this stops being
+deferrable the moment this output goes to anyone but the account owner. See
+`ψ/lab/crypto-signal-digest/README.md` for the full regulatory finding.
+
+**Dedup**: seen headline URLs persist to `sentiment_seen_urls.json` in the same
+`STATE_DIR` as `advisor.py`'s own per-symbol state files (same Railway volume), capped at
+2000 entries — a headline is classified once and never re-notified on a later cron tick.
 
 ## Quick-confirm real trades (Discord ✅/❌ reactions, 2026-08-17)
 
@@ -285,7 +344,7 @@ A Streamlit app showing live entry/exit signals for the same 9 symbols as the cr
 - **`/api/log-real-trade` webhook** (the local↔cloud bridge): `moss-real-trades.md` is local-only on Boss's Mac (gitignored, no sync anywhere); Redis is Railway-private-network-only (deliberately not exposed publicly — same call as skipping SSH key registration earlier). Rather than expose Redis directly, `server.py` wraps the dashboard in `st.App(..., routes=[...])` (Streamlit's ASGI mode — see `streamlit docs st.App`) and adds one authenticated POST route. `ψ/lab/discord-bot/bot.mjs`'s `appendTradeEntry()` POSTs the same text it just wrote locally (plus a loose keyword-guessed `symbol_hint`, never a parsed number) to this route after every `บันทึกเทรด`/`เทรดจริง` message. Auth is a single shared bearer token (`TRADE_LOG_WEBHOOK_TOKEN`, same value on both the dashboard's Railway env and the local `.env`) — a personal single-writer webhook, not a public API, but still checked on every request (401 on missing/wrong token, never silently accepted). Best-effort on the bot side: a webhook/network failure never blocks or reverts the local file write.
 - **Cron heartbeat status**: banner at the top of the dashboard — green if the cron ran within the last 8h, red if it's gone silent longer than that (the exact failure mode from the 2026-08-12→15 incident). See "Known bug" above.
 - **Run locally**: `uvicorn server:app --port 8501` (not `streamlit run` anymore — that would skip the webhook route; needs `streamlit`, `plotly`, `uvicorn` — already in `requirements.txt`). Local runs won't see Redis trade history unless `REDIS_URL` is set in your shell — this is a cloud-only integration by default.
-- **Public URL**: `https://market-backtester-dashboard-production.up.railway.app`
+- **Public URL**: `https://market-backtester-dashboard-production-f1ec.up.railway.app` (regenerated 2026-08-27 after the workspace rebuild — the old URL is dead)
 - **Port note**: `startCommand` uses `--port $PORT` (Railway injects this — came out to 8080 at deploy time). The service's public domain must target whatever `$PORT` actually resolves to — check `railway logs --service market-backtester-dashboard` for the "Uvicorn running on http://0.0.0.0:XXXX" line if the domain ever 502s, and `railway domain update <domain> --port <that number> --service market-backtester-dashboard`.
 
 ## Known quirks

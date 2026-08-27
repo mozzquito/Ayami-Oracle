@@ -75,6 +75,47 @@ def send_discord_message(message: str, mention_owner: bool = False) -> bool:
     return False
 
 
+def send_discord_message_to_channel(message: str, channel_id: str) -> bool:
+    """Same delivery mechanics as send_discord_message (retry policy, code-fence wrapping,
+    length budget) but posts to an explicit channel_id instead of REPORT_CHANNEL_ID —
+    used by the sentiment overlay (backtester/sentiment.py) to keep its digest in its own
+    channel rather than mixing into the real trade-signal stream.
+    """
+    token = os.environ.get("DISCORD_BOT_TOKEN")
+    if not token or not channel_id:
+        print("notify: DISCORD_BOT_TOKEN/channel_id not set, skipping", file=sys.stderr)
+        return False
+
+    budget = DISCORD_MAX_LEN - len("```\n\n```") - 20
+    body = message if len(message) <= budget else message[:budget] + "\n… (truncated)"
+
+    url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
+    headers = {"Authorization": f"Bot {token}", "Content-Type": "application/json"}
+    payload = {"content": f"```\n{body}\n```"}
+
+    last_error = None
+    for attempt, delay in enumerate((0, *_RETRY_DELAYS_SEC)):
+        if delay:
+            time.sleep(delay)
+        try:
+            resp = requests.post(url, headers=headers, json=payload, timeout=15)
+        except requests.RequestException as e:
+            last_error = str(e)
+            print(f"notify: request failed (attempt {attempt + 1}): {e}", file=sys.stderr)
+            continue
+
+        if resp.status_code < 300:
+            return True
+        last_error = f"{resp.status_code}: {resp.text}"
+        if resp.status_code < 500 and resp.status_code != 429:
+            print(f"notify: Discord API error {last_error} (not retrying, not transient)", file=sys.stderr)
+            return False
+        print(f"notify: Discord API error {last_error} (attempt {attempt + 1})", file=sys.stderr)
+
+    print(f"notify: giving up after {len(_RETRY_DELAYS_SEC) + 1} attempts — last error: {last_error}", file=sys.stderr)
+    return False
+
+
 def main() -> int:
     message = sys.stdin.read().strip()
     if not message:

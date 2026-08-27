@@ -8,12 +8,15 @@ Usage: python -m backtester.cloud_run
 
 from __future__ import annotations
 
+import os
+import sys
 from datetime import datetime, timezone
 
 from .advisor import advise, is_in_position
 from .config import MAX_CONCURRENT_POSITIONS
-from .notify import send_discord_message
+from .notify import send_discord_message, send_discord_message_to_channel
 from .trade_store import record_heartbeat
+from . import sentiment
 
 # Paper trade only — no real money. Each entry is its own independent single-asset
 # position (v1 has no portfolio/cross-asset logic), sharing the same $10 capital pool
@@ -146,17 +149,20 @@ def main() -> int:
     # unresolvable for the quick-confirm flow anyway. There are no other event types —
     # advise() only ever flips `event` True on an entry or an exit.
     urgent_reports = []
+    crypto_signal_now: dict[str, int] = {}  # symbol -> this run's technical signal, for the sentiment overlay below
     for cfg in SYMBOLS:
         market = cfg["market"]
         cap = MAX_CONCURRENT_POSITIONS.get(market)
         was_open = is_in_position(cfg["symbol"], market, cfg["strategy_name"], cfg["capital"])
         allow_entry = cap is None or open_counts.get(market, 0) < cap
 
-        report, event, is_entry, is_exit = advise(**cfg, allow_entry=allow_entry)
-        print(report)
+        result = advise(**cfg, allow_entry=allow_entry)
+        print(result.report)
         print()
-        if event:
-            urgent_reports.append(report)
+        if market == "crypto":
+            crypto_signal_now[cfg["symbol"]] = result.signal_now
+        if result.event:
+            urgent_reports.append(result.report)
             is_open_now = is_in_position(cfg["symbol"], market, cfg["strategy_name"], cfg["capital"])
             if is_open_now and not was_open:
                 open_counts[market] = open_counts.get(market, 0) + 1
@@ -171,6 +177,23 @@ def main() -> int:
         print(f"Discord notified — {total_events} event(s) this run (each its own @mentioned message).")
     else:
         print("No events this run (all HOLD/WAIT) — Discord not notified.")
+
+    # Thai news sentiment overlay (2026-08-27) — a broken scrape or a flaky LLM call must
+    # never take down the actual trading-signal loop above, so it's fully isolated here:
+    # any exception is caught, logged, and swallowed rather than propagated.
+    try:
+        overlay_lines = sentiment.run_overlay(crypto_signal_now)
+        sentiment_channel_id = os.environ.get("SENTIMENT_CHANNEL_ID")
+        if overlay_lines and sentiment_channel_id:
+            digest = header + "\n\n📰 ข่าว sentiment overlay\n_ไม่ใช่คำแนะนำการลงทุน — โปรดตรวจสอบก่อนตัดสินใจ_\n\n" + "\n\n".join(overlay_lines)
+            send_discord_message_to_channel(digest, sentiment_channel_id)
+            print(f"Sentiment overlay — {len(overlay_lines)} item(s) sent to SENTIMENT_CHANNEL_ID.")
+        elif overlay_lines:
+            print(f"Sentiment overlay — {len(overlay_lines)} item(s) found but SENTIMENT_CHANNEL_ID not set, not sent.")
+        else:
+            print("Sentiment overlay — nothing new/aligned this run.")
+    except Exception as e:
+        print(f"Sentiment overlay failed (non-fatal, trading loop unaffected): {e}", file=sys.stderr)
 
     record_heartbeat()
     return 0

@@ -14,8 +14,10 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-ENVIRONMENT_ID="24ed59db-611e-4316-ad53-11dbf45a6531"   # production environment, market-backtester-advise project
-SERVICE_ID="a4ef9c2e-5ec1-41fa-b4b8-f7d92878776c"        # market-backtester-advise service
+ENVIRONMENT_ID="fdb22b45-c55d-4b28-9b81-6786051e4c4a"   # production environment, market-backtester-advise project
+SERVICE_ID="910c3b74-ecfe-492b-9cd4-3b67f7309671"        # market-backtester-advise service
+# Rebuilt 2026-08-27 — the original "mozzquito's Projects" workspace (and every ID it
+# contained) was deleted; these are the new project's IDs after a from-scratch rebuild.
 CRON_SCHEDULE="0 */2 * * *"                              # every 2h UTC = 12x/day (was 4x/day — crypto's 24/7 market meant a 6h gap left signals stale; see "missing the trade window" 2026-08-17)
 
 echo "== 1/3: deploying code via railway up =="

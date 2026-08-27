@@ -161,7 +161,7 @@ def cmd_advise(args: argparse.Namespace) -> int:
     params = _parse_params(args.params)
     stop_pct, target_pct = _resolve_stop_target(args.strategy, args.market, args.stop_pct, args.target_pct)
     try:
-        report, _event = advise(
+        result = advise(
             symbol=args.symbol,
             market=args.market,
             strategy_name=args.strategy,
@@ -180,7 +180,7 @@ def cmd_advise(args: argparse.Namespace) -> int:
         print(f"Error: {e}", file=sys.stderr)
         return 1
 
-    print(report)
+    print(result.report)
     return 0
 
 
