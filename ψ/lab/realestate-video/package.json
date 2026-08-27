@@ -1,0 +1,24 @@
+{
+  "name": "realestate-video-prototype",
+  "version": "0.1.0",
+  "description": "Prototype pipeline: property photos + details -> Thai-narrated vertical listing video. Side-income idea #1 from ψ/writing/side-income-playbook.md",
+  "type": "module",
+  "main": "dist/pipeline.js",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "pipeline": "tsc && node dist/pipeline.js"
+  },
+  "dependencies": {
+    "commander": "^13.1.0",
+    "dotenv": "^17.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "MIT"
+}
