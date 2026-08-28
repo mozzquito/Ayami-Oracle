@@ -10,7 +10,10 @@ from __future__ import annotations
 
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+BANGKOK_TZ = ZoneInfo("Asia/Bangkok")
 
 from .advisor import advise, is_in_position
 from .config import MAX_CONCURRENT_POSITIONS
@@ -128,7 +131,7 @@ SYMBOLS = [
 
 
 def main() -> int:
-    header = f"=== {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC ==="
+    header = f"=== {datetime.now(BANGKOK_TZ).strftime('%Y-%m-%d %H:%M:%S')} ICT ==="
     print(header)
 
     # Correlation guard: count positions already open per market before this run starts,

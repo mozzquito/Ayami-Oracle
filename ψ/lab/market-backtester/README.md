@@ -146,7 +146,7 @@ match. If Discord notifications had gone quiet for a while before 2026-08-27 wit
 anyone noticing, this is why.
 
 - **Project**: `market-backtester-advise` on Railway (`พงษ์เชษฐ ภูษณวรรณ's Projects` workspace) — **3 services** now: `market-backtester-advise` (the cron job), `market-backtester-dashboard` (live web dashboard, see below), `Redis` (shared trade history between them).
-- **Schedule**: `deploy.cronSchedule` = `"0 1,7,13,19 * * *"` (01:00/07:00/13:00/19:00 UTC = 08:00/14:00/20:00/02:00 ICT — 4x/day). Railway cron: min 5-minute resolution, times not guaranteed to the minute.
+- **Schedule**: `deploy.cronSchedule` = `"0 * * * *"` (every hour, on the hour — 24x/day, มอส asked for hourly 2026-08-28; was every 2h before that, and `"0 1,7,13,19 * * *"` — 4x/day — before that). Railway cron: min 5-minute resolution, times not guaranteed to the minute.
 - **State persistence**: a 500MB volume mounted at `/data`, `BACKTESTER_STATE_DIR=/data/.state` env var (see `advisor.py`) — one JSON file per symbol, holds live position state (in_position, entry price, stop/target). This volume is **exclusive to the cron service** — Railway volumes are single-service, which is why trade *history* (for the dashboard) goes through Redis instead (see below).
 - **Discord notification is event-only**: `advise()` returns `(report, event)` — `event` is `True` only on a real entry/exit/stop/target this call, never on unchanged HOLD/WAIT. `cloud_run.py` collects just the event reports into one consolidated message and calls `backtester/notify.py` (pure Python, Discord REST API) directly — running more often doesn't mean more Discord noise.
 - **Env vars on the cron service**: `DISCORD_BOT_TOKEN`, `REPORT_CHANNEL_ID` (same values as `../discord-bot/.env`), `BACKTESTER_STATE_DIR`, `PYTHONUNBUFFERED=1`, `REDIS_URL=${{Redis.REDIS_URL}}`.
@@ -291,11 +291,12 @@ rather than attempted. Four changes shipped:
    explicitly, it's a real gotcha). ~~Exit/stop/target events stay unmentioned (informational
    only, no decision window to rush).~~ **Corrected 2026-08-21** — see below, this assumption
    was wrong.
-2. **Cron frequency: 4x/day → every 2 hours (12x/day)** — was `0 1,7,13,19 * * *`, now
-   `0 */2 * * *` in both `railway.cron.json` and `deploy-cron.sh`'s `CRON_SCHEDULE`. Applies to
-   all 9 symbols (crypto and forex) rather than building a second, more complex dual-schedule
-   system — running forex checks more often is harmless (event-only notification logic already
-   means no extra Discord noise from checks that find nothing new).
+2. **Cron frequency: 4x/day → every 2 hours (12x/day) → every hour (24x/day, 2026-08-28)** —
+   was `0 1,7,13,19 * * *`, then `0 */2 * * *`, now `0 * * * *` in both `railway.cron.json` and
+   `deploy-cron.sh`'s `CRON_SCHEDULE`. Applies to all 9 symbols (crypto and forex) rather than
+   building a second, more complex dual-schedule system — running forex checks more often is
+   harmless (event-only notification logic already means no extra Discord noise from checks
+   that find nothing new).
 3. **Live-price staleness warning** — `advisor.py`'s `_live_price_deviation_warning()` fetches
    a lightweight near-real-time quote via `yfinance`'s `Ticker(...).fast_info.last_price`
    (distinct from the daily-bar OHLCV history `advise()` otherwise uses) and appends a ⚠️ line

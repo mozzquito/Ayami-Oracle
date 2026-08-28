@@ -5,7 +5,7 @@
   },
   "deploy": {
     "startCommand": "python -m backtester.cloud_run",
-    "cronSchedule": "0 */2 * * *",
+    "cronSchedule": "0 * * * *",
     "restartPolicyType": "NEVER"
   }
 }
