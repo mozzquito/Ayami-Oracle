@@ -1,0 +1,16 @@
+{
+  "name": "sendgrid-log-poc",
+  "version": "0.1.0",
+  "description": "POC: capture SendGrid email events via Event Webhook and keep them past SendGrid's own retention window",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun run server.ts",
+    "query": "bun run query.ts",
+    "send-batch": "bun run send-batch.ts",
+    "reconcile": "bun run reconcile.ts"
+  },
+  "dependencies": {
+    "@sendgrid/eventwebhook": "^8.0.0"
+  }
+}
