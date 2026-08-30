@@ -42,6 +42,29 @@ agy -p "Try this same code-review task with Gemini instead of the default model"
   --mode plan --model gemini-3.6-flash-high
 ```
 
+## Multiple instances (swarm)
+
+agy is just a shelled-out process, so several can run at once — either multiple agy calls with different `--model`, or alongside `/zcode` calls — each scoped to a different file/module/question. Launch them as parallel Bash tool calls in the same turn, or background them (agy has no alias-in-background issue, unlike zcode).
+
+- **Split by scope, not by duplication** — give each instance a different file, module, or angle rather than pointing several at the same thing for a vote.
+- **`--mode plan` on every instance when swarming** unless the task genuinely requires each one to write — parallel writers can race on the same files.
+- **Collect and synthesize yourself** — read all the stdout results and reconcile them; don't relay N raw outputs verbatim.
+- Since agy is multi-model, a swarm here can diversify *models*, not just scope — e.g. one instance on `gemini-3.6-flash-high` and one on `claude-sonnet-4-6` reviewing the same code, to catch what a single model's blind spots would miss.
+
+## Choosing a model for the task
+
+`agy models` is the live list; as of 2026-08-08: `gemini-3.6-flash-high/medium/low`, `gemini-3.5-flash-high/medium/low`, `gemini-3.1-pro-high/low`, `claude-sonnet-4-6`. Pick based on task shape, not habit:
+
+| Task shape | Suggested model | Why |
+|---|---|---|
+| Quick sanity check, single small file, low stakes | `gemini-3.6-flash-high` (or `-medium` if truly trivial) | Fast, cheap, good enough for a first pass |
+| Deep review, architecture/design critique, cross-file reasoning | `gemini-3.1-pro-high` | More reasoning depth for hard tradeoffs |
+| Task benefits from a genuinely different model family (second opinion vs. Claude, or vs. zcode's GLM) | `claude-sonnet-4-6` or a `gemini-3.x` variant — pick whichever is *not* what already reviewed it | The point is model diversity, not raw strength |
+| Cost/latency-sensitive bulk sweep (many files, low individual stakes) | `gemini-3.5-flash-low/medium` | Cheapest, run many in parallel |
+| Default / no strong signal either way | omit `--model` (agy's default) | Don't over-optimize when the task doesn't call for it |
+
+Match effort to stakes: don't reach for `-high`/`pro` on a one-line typo check, and don't settle for `-low` on something that will get merged and trusted without a human re-check.
+
 ## Other useful subcommands
 
 - `agy models` — list available models for `--model`

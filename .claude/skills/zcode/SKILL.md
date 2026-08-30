@@ -21,6 +21,7 @@ Do not reach for this by default — it's an explicit user choice, not a general
 zcode -p "<prompt>" --cwd "<absolute/path/to/repo>"
 ```
 
+- **`zcode` is a shell alias** (`alias zcode="node /Applications/ZCode.app/Contents/Resources/glm/zcode.cjs"` in `~/.zshrc`), not a real `PATH` binary — `which zcode`/`type zcode` report "not found." Foreground Bash calls work fine (they source a shell snapshot that picks up `.zshrc`'s aliases), but **`run_in_background: true` Bash calls do not** — the alias fails immediately with `command not found: zcode` (exit 127). For any backgrounded zcode delegation, skip the alias and call the underlying command directly instead: `node /Applications/ZCode.app/Contents/Resources/glm/zcode.cjs -p "<prompt>" --cwd "<path>" ...` — same flags, same behavior, just resolves regardless of foreground/background. See `ψ/memory/learnings/2026-08-18_zcode-alias-fails-in-background-bash.md` for the full diagnosis. (`agy`, by contrast, is a real installed binary and has no equivalent issue in either mode.)
 - `-p, --prompt` — run one prompt, print result, exit (no TUI). This is the mode to use from Ayami; the bare `zcode` command opens a full-screen interactive TUI and will hang a scripted call.
 - `--cwd <path>` — **always pass this explicitly** rather than relying on the shell's current directory. zcode is a full agent with file write access; an unset `--cwd` risks it operating on the wrong project.
 - `--attach <path>` — attach a file to the prompt (repeatable for multiple files).
@@ -39,6 +40,15 @@ zcode -p "Review src/auth.ts for race conditions, report findings only, don't ed
 zcode -p "Implement the CSV export button described in ψ/inbox/focus-agent-main.md" \
   --cwd "/Users/phongcheatphus/ayami-oracle"
 ```
+
+## Multiple instances (swarm)
+
+zcode is just a shelled-out process, so nothing stops running several at once — either alongside other zcode calls, or alongside `/agy` calls — each scoped to a different file/module/question. Launch them as parallel Bash tool calls in the same turn (or background them, using the full `node .../zcode.cjs` path per the alias caveat above, not the alias).
+
+- **Split by scope, not by duplication** — give each instance a different file, module, or angle (e.g. one on `auth.ts` for race conditions, one on `db.ts` for query safety) rather than pointing multiple instances at the same thing hoping for consensus.
+- **Read-only by default when swarming** — pass `--disallowedTools "Edit Write"` on every instance unless the task genuinely requires each one to write, since parallel writers can race on the same files.
+- **Collect and synthesize yourself** — Ayami reads all the stdout results and reconciles them; don't relay raw output from N processes verbatim to the user.
+- zcode only exposes GLM as a backend (no `--model` switch like agy), so a zcode swarm is about splitting scope, not diversifying models — pair it with `/agy` (or plain Claude) instances if the user wants model diversity too.
 
 ## Other useful subcommands
 
