@@ -1,0 +1,15 @@
+{
+  "name": "megvii-alarm-bridge",
+  "version": "1.0.0",
+  "description": "Receives Megvii MegCube alarm push and relays to Discord + LINE OA",
+  "main": "alarm-bridge.mjs",
+  "type": "module",
+  "scripts": {
+    "start": "node alarm-bridge.mjs"
+  },
+  "dependencies": {
+    "busboy": "^1.6.0",
+    "cloudinary": "^2.10.1",
+    "dotenv": "^17.4.2"
+  }
+}
