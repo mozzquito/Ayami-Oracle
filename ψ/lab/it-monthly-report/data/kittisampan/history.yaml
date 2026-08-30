@@ -1,0 +1,24 @@
+# Ticket history ก่อนเดือนแรกที่ใช้เครื่องมือนี้ — ย้ายมาจากตาราง Ticket
+# ในรายงาน .docx ฉบับเดือนกรกฎาคม 2026 (ต้นฉบับใส่ตั๋วเก่าปนกับตั๋วของเดือน
+# จน summary=0 ขัดกับตาราง จึงแยกออกมาที่นี่ตาม convention ของ schema)
+#
+# ไฟล์นี้เป็นข้อมูลอ้างอิง ไม่ถูก render ลงรายงานรายเดือน — trend_mom.recurring_issues
+# ของเดือนที่เกี่ยวข้องเป็นที่ที่ surfaces รูปแบบปัญหาซ้ำจากข้อมูลชุดนี้
+
+tickets:
+  - name: "ใช้งานโปรแกรม Express ไม่ได้"
+    detail: null
+    status: "Done"
+    responsible: "Konpon, Autchariya"
+    start: "2026-01-06"
+    end: "2026-01-06"
+    resolution: "เปิดใช้งาน SMB 1.0 เพื่อเข้าใช้งาน Express จากเครื่อง Server"
+    note: "ที่มาของ critical alert SMB 1.0 ที่ยังเปิดอยู่ถึงเดือน ก.ค."
+
+  - name: "ใส่ข้อมูลลงโปรแกรม Express ไม่ได้"
+    detail: null
+    status: "Done"
+    responsible: "Konpon"
+    start: "2026-04-24"
+    end: "2026-04-24"
+    resolution: "ดำเนินการ Restart 1 ครั้ง"

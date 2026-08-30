@@ -1,0 +1,30 @@
+{
+  "name": "grafana-report-bot",
+  "version": "1.0.0",
+  "description": "Screenshot Grafana dashboards headlessly (Playwright), pull peak values from Prometheus, and compose a weekly VM health report",
+  "type": "module",
+  "main": "dist/cli.js",
+  "bin": {
+    "grafana-report": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc && chmod +x dist/cli.js",
+    "typecheck": "tsc --noEmit",
+    "generate": "npm run build && node dist/cli.js generate",
+    "list": "npm run build && node dist/cli.js list",
+    "postinstall": "playwright install chromium"
+  },
+  "dependencies": {
+    "commander": "^13.1.0",
+    "dotenv": "^16.4.7",
+    "playwright": "^1.49.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "MIT"
+}

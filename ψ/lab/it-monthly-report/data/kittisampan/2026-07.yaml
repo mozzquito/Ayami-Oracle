@@ -1,0 +1,122 @@
+# EXAMPLE — re-created from the original Kittisampan July 2026 .docx report,
+# with the gaps agy/zcode/Ayami flagged filled in as a demo. Not the real
+# July report of record; use as a reference for how to fill schema.yaml.
+
+report:
+  title: "IT Service Monthly Report"
+  month: "July"
+  year: 2026
+  client_name: "Kittisampan Concrete Company Limited"
+  report_date: "2026-07-25"
+  onsite_ma_date: "2026-07-21"
+  monitor_date: "2026-07-20"
+
+prepared_by: {name: "Konpon Saeteaw", role: "IT Specialist", phone: "084-093-5071", email: "Konpon.s@wayama.tech"}
+checked_by:  {name: "Autchariya Khamphanyim", role: "Project Manager", phone: "086-539-9685", email: "Autchariya.k@wayama.tech"}
+
+health:
+  overall_status: yellow
+  highlights:
+    - "ย้ายฐานข้อมูล Express จาก Kscc004 ไป Desktop-honakpk สำเร็จ ทดสอบ login/connection ผ่านทุกจุด"
+    - "Backup NAS ทำงานตามรอบปกติ, เครื่องพิมพ์ทุกเครื่องใช้งานได้"
+    - "พบ 3 ประเด็นที่ต้องตัดสินใจ: M365 หมดอายุ, SMB 1.0 เปิดอยู่, ฮาร์ดแวร์เก่า 85%"
+  critical_alerts:
+    - severity: red
+      title: "Microsoft 365 หมดอายุแล้ว"
+      description: "M365 จำนวน 5 license หมดอายุ 6 กรกฎาคม 2026 — หมดมาแล้ว 19 วัน ณ วันที่ออกรายงาน"
+      recommendation: "ต่ออายุทันทีหรือ downgrade เป็น perpetual license ภายในสัปดาห์นี้"
+    - severity: red
+      title: "เปิดใช้งาน SMB 1.0 เพื่อให้ Express เชื่อมต่อ Server"
+      description: "SMB 1.0 เป็นโปรโตคอลเก่าที่มีช่องโหว่ระดับ ransomware (เช่น WannaCry)"
+      recommendation: "วางแผนย้าย Express ไปใช้ SMB เวอร์ชันใหม่กว่า หรือแยก network segment เฉพาะเครื่องที่จำเป็น"
+    - severity: yellow
+      title: "ฮาร์ดแวร์อายุเกิน 5 ปี 85% ของเครื่องทั้งหมด"
+      description: "6 จาก 7 เครื่องอายุ 5 ปีขึ้นไป เสี่ยงพังพร้อมกันหลายเครื่อง"
+      recommendation: "วาง replacement roadmap ทยอยเปลี่ยน 2-3 เครื่อง/ไตรมาส เริ่ม Q4/2026"
+
+sla:
+  uptime_percent: 99.8
+  avg_response_hours: 4
+  avg_resolution_hours: 6
+  sla_met_percent: 100
+
+trend_mom:
+  ticket_count: {this_month: 0, last_month: null}
+  uptime_percent: {this_month: 99.8, last_month: null}
+  recurring_issues:
+    - "โปรแกรม Express ใช้งานไม่ได้ซ้ำ 2 ครั้ง (ม.ค. และ เม.ย. 2026 — ดู history.yaml)"
+
+computers:
+  contract_count: 7
+  serviced_count: 7
+  by_type: {desktop: 5, laptop: 0, all_in_one: 2, macbook: 0}
+  hard_disk: {normal: 7, caution: 0}
+  battery: {ok: 0, degraded: 0}
+  age_distribution: {"under_1y": 0, "1_2y": 0, "2_4y": 1, "5_7y": 4, "over_7y": 2}
+  replacement_recommendation: "2 เครื่องอายุ >7 ปี แนะนำเปลี่ยนก่อน ภายใน Q4/2026; อีก 4 เครื่องอายุ 5-7 ปี ทยอยวางแผนปีถัดไป"
+
+software:
+  os_licenses:
+    - {name: "Microsoft Windows 10 Home", amount: 3, expire: null}
+    - {name: "Microsoft Windows 11 Home", amount: 4, expire: null}
+  office_licenses:
+    - {name: "Microsoft 365", amount: 5, expire: "2026-07-06"}
+    - {name: "Microsoft Office Home and Student 2021", amount: 1, expire: null}
+  license_alerts: []
+
+server:
+  contract_count: 1
+  serviced_count: 1
+  physical_servers:
+    - model: "QNAP NAS326"
+      cpu: "Marvell Armada 380 1.3 GHz"
+      ram_gb: 0.5
+      disk: "1TB HDD (no RAID) + 2TB external backup"
+      os: "Linux"
+      role: "NAS / File server"
+      status: normal
+  guest_vms: []
+  backup:
+    scheduled_status: ok
+    last_restore_test: null
+
+firewall_gateway:
+  devices:
+    - {name: "FortiGate", status: null, firmware: null, license_expiry: null}
+    - {name: "Mikrotik RB750GR3", status: normal, firmware: null, license_expiry: null}
+  warning_critical_log: "ตรวจสอบสถานะของอุปกรณ์ปกติ ไม่พบ Critical Log"
+
+network:
+  devices:
+    - {type: "Switch", count: 1, status: normal}
+    - {type: "Access Point", count: 1, status: normal}
+    - {type: "CCTV System", count: 1, status: normal}   # จากรายงานต้นฉบับ: CCTV จากการ Maintenance สถานะปกติ
+  warning_critical_log: "ไม่พบ"
+
+tickets:
+  incident_count: 0
+  service_request_count: 0
+  status: {in_progress: 0, pending: 0, done: 0}
+  list: []
+
+scope_of_work:   # รายการขยายจากบันทึก MA 21 ก.ค. 2026 ในรายงานต้นฉบับ
+  - {item: "Preventive maintenance onsite (monthly)", delivered: true}
+  - {item: "Server migration — ย้าย Express จาก Kscc004 ไป Desktop-honakpk", delivered: true}
+  - {item: "ตรวจสอบ Folder Sharing & Security Permissions และ Map Network Drive", delivered: true}
+  - {item: "ติดตั้งโปรแกรม Express ใหม่บนเครื่องผู้ใช้ทุกเครื่อง + Login/connection test (ไม่พบ error)", delivered: true}
+  - {item: "ตรวจเช็คเครื่องพิมพ์ทุกเครื่อง — เชื่อมต่อ/พิมพ์ผ่าน network ปกติ", delivered: true}
+  - {item: "ตรวจสอบ NAS (สถานะ/พื้นที่จัดเก็บ/backup logs) — ทำงานครบตามรอบ", delivered: true}
+  - {item: "Remote server/network monitoring", delivered: true}
+  - {item: "ตรวจสอบ Server/NAS, Router/Network, CCTV — สถานะปกติ", delivered: true}
+  - {item: "Backup restore test", delivered: false}
+
+recommendations:
+  - {priority: high, text: "ต่ออายุ Microsoft 365 ก่อนกระทบการทำงาน"}
+  - {priority: high, text: "ทดสอบ restore จาก NAS backup อย่างน้อยไตรมาสละครั้ง เพื่อยืนยันว่ากู้คืนได้จริง"}
+  - {priority: medium, text: "วางแผนปิด SMB 1.0 และย้าย Express ไปใช้โปรโตคอลที่ปลอดภัยกว่า"}
+  - {priority: medium, text: "ขอ firmware version และ license expiry ของ FortiGate เพื่อความโปร่งใส"}
+  - {priority: low, text: "วาง replacement roadmap สำหรับคอมพิวเตอร์อายุเกิน 5 ปี"}
+
+sign_off:
+  client_signer_name: null
+  client_signed_date: null

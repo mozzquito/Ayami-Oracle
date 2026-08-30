@@ -1,5 +1,4 @@
-import { config } from "./config.js";
-import type { EnhancedPhoto } from "./types.js";
+import type { EnhancedPhoto, PipelineConfig } from "./types.js";
 
 // Verified live 2026-08-27: POST https://fal.run/fal-ai/topaz/adjust/image
 // with "Authorization: Key <FAL_API_KEY>" is the correct auth scheme (a real
@@ -12,12 +11,12 @@ interface FalResponse {
   image: { url: string; content_type: string; file_size: number };
 }
 
-async function enhanceOne(photoUrl: string): Promise<EnhancedPhoto> {
+async function enhanceOne(photoUrl: string, cfg: PipelineConfig): Promise<EnhancedPhoto> {
   try {
     const res = await fetch(FAL_ENDPOINT, {
       method: "POST",
       headers: {
-        Authorization: `Key ${config.falApiKey}`,
+        Authorization: `Key ${cfg.falApiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -40,6 +39,6 @@ async function enhanceOne(photoUrl: string): Promise<EnhancedPhoto> {
   }
 }
 
-export async function enhancePhotos(photoUrls: string[]): Promise<EnhancedPhoto[]> {
-  return Promise.all(photoUrls.map(enhanceOne));
+export async function enhancePhotos(photoUrls: string[], cfg: PipelineConfig): Promise<EnhancedPhoto[]> {
+  return Promise.all(photoUrls.map((url) => enhanceOne(url, cfg)));
 }

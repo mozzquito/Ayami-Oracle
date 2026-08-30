@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "realestate-video",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-08-31",
+  "workflows": [
+    {
+      "name": "realestate-video-pipeline",
+      "binding": "PIPELINE",
+      "class_name": "RealEstateVideoWorkflow"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "realestate-video-db",
+      "database_id": "001223fd-bb4d-46ab-8349-59ba1a7f7d88"
+    }
+  ]
+}

@@ -1,5 +1,4 @@
-import { config } from "./config.js";
-import type { VoiceoverResult } from "./types.js";
+import type { PipelineConfig, VoiceoverResult } from "./types.js";
 
 // Endpoint, param names, and response shape confirmed from SpeechGen's own
 // docs (speechgen.io/en/node/api/) on 2026-08-27 — NOT yet live-tested,
@@ -28,16 +27,17 @@ interface SpeechGenResponse {
 
 export async function generateVoiceover(
   text: string,
-  voice: string = DEFAULT_THAI_VOICE
+  voice: string = DEFAULT_THAI_VOICE,
+  cfg: PipelineConfig
 ): Promise<VoiceoverResult> {
-  if (!config.speechgenEmail) {
+  if (!cfg.speechgenEmail) {
     throw new Error(
-      "SPEECHGEN_EMAIL is not set in .env — SpeechGen's API needs the account email alongside the token on every call."
+      "speechgenEmail is not set — SpeechGen's API needs the account email alongside the token on every call."
     );
   }
   const body = new URLSearchParams({
-    token: config.speechgenApiKey,
-    email: config.speechgenEmail,
+    token: cfg.speechgenApiKey,
+    email: cfg.speechgenEmail,
     text,
     voice,
     format: "mp3",

@@ -1,0 +1,188 @@
+{# IT Service Monthly Report — Jinja2 markdown template
+   Rendered by generate.py from a schema.yaml-shaped data file.
+   Design combines feedback from /agy, /zcode, and Ayami's own review of the
+   original Kittisampan July 2026 report (see ψ/memory or session history). #}
+# {{ report.title }} — {{ report.month }} {{ report.year }}
+**{{ report.client_name or "⚠️ MISSING client_name" }}**
+
+| | |
+|---|---|
+| Report Date | {{ report.report_date or "⚠️ MISSING" }} |
+| Onsite MA | {{ report.onsite_ma_date or "⚠️ MISSING" }} |
+| Server/Network Monitor | {{ report.monitor_date or "⚠️ MISSING" }} |
+| Prepared by | {{ prepared_by.name or "⚠️ MISSING" }}, {{ prepared_by.role or "-" }}{% if prepared_by.phone %} — {{ prepared_by.phone }}{% endif %}{% if prepared_by.email %} — {{ prepared_by.email }}{% endif %} |
+| Checked by | {{ checked_by.name or "⚠️ MISSING" }}, {{ checked_by.role or "-" }}{% if checked_by.phone %} — {{ checked_by.phone }}{% endif %}{% if checked_by.email %} — {{ checked_by.email }}{% endif %} |
+
+---
+
+## 1. Executive Summary
+**Overall status:** {{ {"green": "🟢 Normal", "yellow": "🟡 Warning", "red": "🔴 Critical"}[health.overall_status] if health.overall_status in ["green","yellow","red"] else "⚠️ NOT SET" }}
+
+**Highlights this month:**
+{% for h in health.highlights %}{% if h %}- {{ h }}
+{% endif %}{% endfor %}
+
+{% if health.critical_alerts and health.critical_alerts|selectattr("title")|list %}
+### ⚠️ Critical Alerts — ต้องการการตัดสินใจจากลูกค้า
+| Severity | Issue | Detail | Recommendation |
+|---|---|---|---|
+{% for a in health.critical_alerts %}{% if a.title %}| {{ "🔴" if a.severity == "red" else "🟡" }} | {{ a.title }} | {{ a.description or "-" }} | {{ a.recommendation or "⚠️ MISSING" }} |
+{% endif %}{% endfor %}
+{% else %}
+_ไม่พบ critical alert เดือนนี้_
+{% endif %}
+
+### SLA Performance
+| Metric | Value |
+|---|---|
+| Uptime | {{ sla.uptime_percent ~ "%" if sla.uptime_percent is not none else "⚠️ MISSING" }} |
+| Avg. Response Time | {{ sla.avg_response_hours ~ " hrs" if sla.avg_response_hours is not none else "⚠️ MISSING" }} |
+| Avg. Resolution Time | {{ sla.avg_resolution_hours ~ " hrs" if sla.avg_resolution_hours is not none else "⚠️ MISSING" }} |
+| SLA Met | {{ sla.sla_met_percent ~ "%" if sla.sla_met_percent is not none else "⚠️ MISSING" }} |
+
+### Trend (Month-over-Month)
+| Metric | This Month | Last Month | Δ |
+|---|---|---|---|
+| Ticket count | {{ trend_mom.ticket_count.this_month if trend_mom.ticket_count.this_month is not none else "-" }} | {{ trend_mom.ticket_count.last_month if trend_mom.ticket_count.last_month is not none else "-" }} | {{ _delta(trend_mom.ticket_count.this_month, trend_mom.ticket_count.last_month) }} |
+| Uptime % | {{ trend_mom.uptime_percent.this_month if trend_mom.uptime_percent.this_month is not none else "-" }} | {{ trend_mom.uptime_percent.last_month if trend_mom.uptime_percent.last_month is not none else "-" }} | {{ _delta(trend_mom.uptime_percent.this_month, trend_mom.uptime_percent.last_month) }} |
+{% if trend_mom.recurring_issues %}
+**Recurring issues:** {{ trend_mom.recurring_issues | join(", ") }}
+{% endif %}
+
+{% if _changelog %}
+### Changes since {{ _changelog_prev_month }}
+{% for c in _changelog %}- {{ c }}
+{% endfor %}
+{% endif %}
+
+---
+
+## 2. Computer
+| | |
+|---|---|
+| Contract count | {{ computers.contract_count if computers.contract_count is not none else "⚠️ MISSING" }} |
+| Serviced this month | {{ computers.serviced_count if computers.serviced_count is not none else "⚠️ MISSING" }} |
+| Desktop / Laptop / All-in-One / MacBook | {{ computers.by_type.desktop }} / {{ computers.by_type.laptop }} / {{ computers.by_type.all_in_one }} / {{ computers.by_type.macbook }} |
+| Hard disk — Normal / Caution | {{ computers.hard_disk.normal }} / {{ computers.hard_disk.caution }}{% if computers.hard_disk.caution and computers.hard_disk.caution > 0 %} 🟡{% endif %} |
+| Battery — OK / Degraded | {{ computers.battery.ok }} / {{ computers.battery.degraded }}{% if computers.battery.degraded and computers.battery.degraded > 0 %} 🟡{% endif %} |
+
+**Age distribution:** <1y: {{ computers.age_distribution.under_1y }} · 1-2y: {{ computers.age_distribution["1_2y"] }} · 2-4y: {{ computers.age_distribution["2_4y"] }} · 5-7y: {{ computers.age_distribution["5_7y"] }} · >7y: {{ computers.age_distribution.over_7y }}
+{% set aging = computers.age_distribution["5_7y"] + computers.age_distribution.over_7y %}
+{% set total = computers.by_type.desktop + computers.by_type.laptop + computers.by_type.all_in_one + computers.by_type.macbook %}
+{% if total and aging / total >= 0.5 %}
+> 🟡 **{{ (aging / total * 100) | round | int }}%** ของเครื่องอายุเกิน 5 ปี — แนะนำวาง replacement roadmap
+{% endif %}
+**Recommendation:** {{ computers.replacement_recommendation or "-" }}
+
+---
+
+## 3. Software & License Tracking
+{% macro license_table(items) -%}
+| Name | Amount | Expire | Status |
+|---|---|---|---|
+{% for i in items %}{% if i.name %}| {{ i.name }} | {{ i.amount }} | {{ i.expire or "-" }} | {{ _license_status(i.expire) }} |
+{% endif %}{% endfor %}
+{%- endmacro %}
+**Operating Systems**
+{{ license_table(software.os_licenses) }}
+
+**Office / Productivity**
+{{ license_table(software.office_licenses) }}
+
+{% if software.license_alerts %}
+> ⚠️ **License alerts:** {{ software.license_alerts | join(" · ") }}
+{% endif %}
+
+---
+
+## 4. Server
+| | |
+|---|---|
+| Contract count | {{ server.contract_count if server.contract_count is not none else "⚠️ MISSING" }} |
+| Serviced this month | {{ server.serviced_count if server.serviced_count is not none else "⚠️ MISSING" }} |
+
+**Physical servers**
+| Model | CPU | RAM | Disk | OS | Role | Status |
+|---|---|---|---|---|---|---|
+{% for s in server.physical_servers %}{% if s.model %}| {{ s.model }} | {{ s.cpu or "-" }} | {{ s.ram_gb ~ " GB" if s.ram_gb is not none else "-" }} | {{ s.disk or "-" }} | {{ s.os or "-" }} | {{ s.role or "-" }} | {{ _status_icon(s.status) }} |
+{% endif %}{% endfor %}
+
+{% if server.guest_vms %}
+**Guest VMs**
+| Name | vCPU | vRAM | Disk | OS |
+|---|---|---|---|---|
+{% for v in server.guest_vms %}| {{ v.name or "-" }} | {{ v.vcpu or "-" }} | {{ v.vram or "-" }} | {{ v.disk or "-" }} | {{ v.os or "-" }} |
+{% endfor %}
+{% else %}
+_ไม่มี Guest VM ภายใต้สัญญา_
+{% endif %}
+
+**Backup**
+| | |
+|---|---|
+| Scheduled backup | {{ _status_icon(server.backup.scheduled_status) }} |
+| Last restore test verified | {{ server.backup.last_restore_test or "⚠️ ยังไม่เคยทดสอบ restore" }} |
+
+---
+
+## 5. Firewall / Gateway
+| Device | Status | Firmware | License Expiry |
+|---|---|---|---|
+{% for d in firewall_gateway.devices %}{% if d.name %}| {{ d.name }} | {{ _status_icon(d.status) }} | {{ d.firmware or "⚠️ MISSING" }} | {{ d.license_expiry or "⚠️ MISSING" }} |
+{% endif %}{% endfor %}
+
+**Warning/Critical log:** {{ firewall_gateway.warning_critical_log or "ไม่พบ" }}
+{% if firewall_gateway.devices|selectattr("status")|list|length == 0 %}
+> 🔴 ไม่มีข้อมูลสถานะอุปกรณ์ firewall เลย — ควรตรวจสอบและกรอกให้ครบ ไม่เช่นนั้นลูกค้าจะตั้งคำถามว่ามีการดูแลจริงหรือไม่
+{% endif %}
+
+---
+
+## 6. Network
+| Type | Count | Status |
+|---|---|---|
+{% for d in network.devices %}{% if d.type %}| {{ d.type }} | {{ d.count }} | {{ _status_icon(d.status) }} |
+{% endif %}{% endfor %}
+
+**Warning/Critical log:** {{ network.warning_critical_log or "ไม่พบ" }}
+
+---
+
+## 7. Ticket Report ({{ report.month }} {{ report.year }} เท่านั้น)
+| Type | Count | | Status | Count |
+|---|---|---|---|---|
+| Incident | {{ tickets.incident_count }} | | In progress | {{ tickets.status.in_progress }} |
+| Service Request | {{ tickets.service_request_count }} | | Pending | {{ tickets.status.pending }} |
+| **Total** | **{{ tickets.incident_count + tickets.service_request_count }}** | | Done | {{ tickets.status.done }} |
+
+{% if tickets.list %}
+| # | Name | Detail | Status | Responsible | Start | End | Resolution |
+|---|---|---|---|---|---|---|---|
+{% for t in tickets.list %}| {{ loop.index }} | {{ t.name or "-" }} | {{ t.detail or "-" }} | {{ t.status or "-" }} | {{ t.responsible or "-" }} | {{ t.start or "-" }} | {{ t.end or "-" }} | {{ t.resolution or "-" }} |
+{% endfor %}
+{% else %}
+_ไม่มี ticket ในเดือนนี้_
+{% endif %}
+
+---
+
+## 8. Scope of Work Check
+| Item | Delivered |
+|---|---|
+{% for s in scope_of_work %}{% if s.item %}| {{ s.item }} | {{ "✅" if s.delivered else "❌" }} |
+{% endif %}{% endfor %}
+
+---
+
+## 9. Recommendations
+{% for r in recommendations %}{% if r.text %}- **[{{ r.priority | upper }}]** {{ r.text }}
+{% endif %}{% endfor %}
+
+---
+
+## Sign-off
+Reviewed and acknowledged by ({{ report.client_name or "⚠️ MISSING client_name" }}):
+
+Name: {{ sign_off.client_signer_name or "_______________________" }}
+Date: {{ sign_off.client_signed_date or "_______________________" }}
+Signature: _______________________
