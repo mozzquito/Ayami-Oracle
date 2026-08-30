@@ -36,13 +36,16 @@ Read and write timestamped notes to `ψ/inbox/`.
 Every inbox item follows this pattern:
 
 ```
-YYYYMMDD_HHMM_<topic-slug>_from_<sender>.md
+YYYYMMDD_HHMM_[P0_|P1_|P2_]<topic-slug>_from_<sender>.md
 ```
 
-Example: `20260323_2112_fix-auth-bug_from_peter.md`
+Examples:
+- `20260323_2112_fix-auth-bug_from_peter.md` (no tag = normal priority)
+- `20260827_0920_P0_server-down-restart-cron_from_moss.md` (urgent)
 
 **Rules**:
 - Date: compact `YYYYMMDD` (no dashes)
+- Priority tag: optional, one of `P0` (urgent — needs eyes today), `P1` (soon), `P2` (whenever). Untagged items are treated as normal priority (same bucket as `P2`) for sorting.
 - Topic slug: lowercase, hyphens, no spaces
 - Sender: who wrote it (oracle name or human name)
 - Timestamp: local time (from `date`)
@@ -59,16 +62,21 @@ ROOT="$(pwd)"
 INBOX="$ROOT/ψ/inbox"
 ```
 
-List all `.md` files in `ψ/inbox/` (excluding `schedule.md` and `handoff/`):
+List all `.md` files in `ψ/inbox/` (excluding `schedule.md` and `handoff/`), **sorted by priority tag first (P0 → P1 → P2/untagged), most recent within each bucket**:
 
 ```bash
-ls -1t "$INBOX"/*.md 2>/dev/null | grep -v schedule.md | head -10
+{
+  ls -1t "$INBOX"/*_P0_*.md 2>/dev/null
+  ls -1t "$INBOX"/*_P1_*.md 2>/dev/null
+  ls -1t "$INBOX"/*.md 2>/dev/null | grep -v schedule.md | grep -vE '_(P0|P1)_'
+} | head -10
 ```
 
 `$INBOX` is absolute (set as `$ROOT/ψ/inbox` in Mode 1 Step 0), so `ls` already prints absolute paths — clickable as-is.
 
-For each file, show:
+For each file, show (priority badge only when tagged):
 ```
+🔴 P0 · 20260827 09:20 — server-down-restart-cron (from moss)
 📥 20260323 21:12 — fix-auth-bug (from peter)
    First 2 lines of content...
 ```
@@ -92,16 +100,27 @@ Read and display full content.
 
 ## Mode 2: Write
 
-### `/inbox write <topic>`
+### `/inbox write <topic>` (optionally `/inbox write P0 <topic>` etc.)
+
+If the topic's first word is *exactly* `P0`, `P1`, or `P2` (followed by a space or end-of-input — not immediately followed by another letter/digit), treat it as the priority tag and strip that word from the topic. Otherwise leave the tag empty (untagged = normal priority). This distinction matters: `P2P notes` or `p0rn-blocker-config` do NOT have a priority tag — `P2`/`P0` there is a prefix of a longer word, not a standalone tag.
+
+```
+/inbox write P0 server is down       → tag=P0, topic="server is down"
+/inbox write p2p integration notes   → tag=(none), topic="p2p integration notes"
+/inbox write P1   migration plan     → tag=P1, topic="migration plan"
+```
 
 ```bash
 TS=$(date +%Y%m%d_%H%M)
-SLUG=$(echo "<topic>" | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]//g')
+PRIO=""   # set to P0/P1/P2 if the user specified one (already stripped from topic below), else leave blank
+SLUG=$(echo "<topic-with-tag-already-stripped>" | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]//g')
 FROM=$(echo "<sender>" | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]//g')
-FILE="$INBOX/${TS}_${SLUG}_from_${FROM}.md"
+# ${PRIO:+${PRIO}_} expands to "P0_" (etc.) when PRIO is set, or to nothing when PRIO="" —
+# do NOT simplify to "${PRIO}_", that produces a stray double-underscore when untagged.
+FILE="$INBOX/${TS}_${PRIO:+${PRIO}_}${SLUG}_from_${FROM}.md"
 ```
 
-**Ask the user**: "What do you want to note?" (unless content is provided after topic)
+**Ask the user**: "What do you want to note?" (unless content is provided after topic). Only ask about priority if it isn't obvious from context — don't force a P0/P1/P2 choice on every write; untagged is the normal, expected case.
 
 Write the file:
 
@@ -137,10 +156,14 @@ echo "📥 Written: $FILE"
 
 ### `/inbox ls`
 
-Same as read but show ALL items (no limit), with file sizes:
+Same as read but show ALL items (no limit), with file sizes, same P0 → P1 → P2/untagged ordering:
 
 ```bash
-ls -lht "$INBOX"/*.md 2>/dev/null | grep -v schedule.md
+{
+  ls -lht "$INBOX"/*_P0_*.md 2>/dev/null | grep -v schedule.md
+  ls -lht "$INBOX"/*_P1_*.md 2>/dev/null | grep -v schedule.md
+  ls -lht "$INBOX"/*.md 2>/dev/null | grep -v schedule.md | grep -vE '_(P0|P1)_'
+}
 ```
 
 Also count handoffs:
