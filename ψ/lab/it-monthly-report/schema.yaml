@@ -1,0 +1,106 @@
+# IT Service Monthly Report — data schema
+#
+# วิธีใช้:
+#   1. คัดลอกไฟล์นี้เป็น data/<year>-<month>.yaml (เช่น data/2026-08.yaml)
+#   2. กรอกข้อมูลเอง หรือเล่ารายละเอียดเดือนนี้เป็นข้อความให้ AI (Claude/zcode/agy)
+#      แล้วบอกให้กรอกไฟล์ตาม schema นี้ (ดู README.md หัวข้อ "ให้ AI กรอกข้อมูล")
+#   3. รัน: ./.venv/bin/python generate.py data/2026-08.yaml
+#
+# ค่าที่ไม่รู้/ไม่มี ให้ใส่ null ไปเลย (อย่าลบ key ทิ้ง) — generator จะ flag เป็นความเสี่ยง/ช่องว่าง
+# ที่ต้องกรอกให้ report สมบูรณ์ แทนที่จะเงียบหายไปเฉยๆ แบบรายงานต้นฉบับ
+
+report:
+  title: "IT Service Monthly Report"
+  month: "August"          # ชื่อเดือนภาษาอังกฤษ ใช้โชว์บนรายงาน
+  year: 2026
+  client_name: null        # ชื่อบริษัทลูกค้า เต็ม
+  report_date: null        # YYYY-MM-DD วันที่ออกรายงาน
+  onsite_ma_date: null     # YYYY-MM-DD วันที่เข้า onsite
+  monitor_date: null       # YYYY-MM-DD วันที่ monitor server/network ล่าสุด
+
+prepared_by: {name: null, role: "IT Specialist", phone: null, email: null}
+checked_by:  {name: null, role: "Project Manager", phone: null, email: null}
+
+# --- 1. Executive Health Dashboard (หน้าแรก) ---------------------------------
+health:
+  overall_status: null    # green | yellow | red — leave null until you actually assess the month
+  highlights:              # bullet สั้นๆ 2-4 ข้อ สรุปเดือนนี้ให้ผู้บริหารอ่านจบใน 30 วิ
+    - null
+  critical_alerts:         # ทุกอย่างที่ควร escalate ให้ลูกค้ารู้ตัว ไม่ใช่แค่บันทึกว่าทำแล้ว
+    - severity: red        # red | yellow
+      title: null
+      description: null
+      recommendation: null
+
+sla:
+  uptime_percent: null
+  avg_response_hours: null
+  avg_resolution_hours: null
+  sla_met_percent: null
+
+trend_mom:                 # เทียบเดือนก่อน — ใส่ null ถ้ายังไม่มี baseline (เดือนแรกที่ใช้ template นี้)
+  ticket_count: {this_month: null, last_month: null}
+  uptime_percent: {this_month: null, last_month: null}
+  recurring_issues: []
+
+# --- 2. Computer -------------------------------------------------------------
+computers:
+  contract_count: null
+  serviced_count: null
+  by_type: {desktop: 0, laptop: 0, all_in_one: 0, macbook: 0}
+  hard_disk: {normal: 0, caution: 0}
+  battery: {ok: 0, degraded: 0}
+  age_distribution: {"under_1y": 0, "1_2y": 0, "2_4y": 0, "5_7y": 0, "over_7y": 0}
+  replacement_recommendation: null   # เช่น "2 เครื่อง >7 ปี แนะนำวางแผนเปลี่ยน Q4/2026"
+
+# --- 3. Software / License tracking ------------------------------------------
+# expire: null ถ้าไม่มีวันหมดอายุ (perpetual license) — ต่างจาก "ไม่รู้" ซึ่งควรใส่ note แทน
+software:
+  os_licenses:
+    - {name: null, amount: 0, expire: null}
+  office_licenses:
+    - {name: null, amount: 0, expire: null}
+  license_alerts: []       # generator เติมอัตโนมัติจาก expire date ที่ใกล้ถึง/เลยกำหนด แต่เพิ่มมือได้
+
+# --- 4. Server -----------------------------------------------------------------
+server:
+  contract_count: null
+  serviced_count: null
+  physical_servers:
+    - {model: null, cpu: null, ram_gb: null, disk: null, os: null, role: null, status: null}
+  guest_vms: []
+  backup:
+    scheduled_status: null       # ok | issue
+    last_restore_test: null      # YYYY-MM-DD — ถ้า null generator จะ flag ว่ายังไม่เคยพิสูจน์ restore ได้จริง
+
+# --- 5. Firewall / Gateway -----------------------------------------------------
+firewall_gateway:
+  devices:
+    - {name: null, status: null, firmware: null, license_expiry: null}
+  warning_critical_log: null
+
+# --- 6. Network ------------------------------------------------------------------
+network:
+  devices:
+    - {type: null, count: 0, status: null}
+  warning_critical_log: null
+
+# --- 7. Ticket Report --------------------------------------------------------------
+tickets:
+  incident_count: 0
+  service_request_count: 0
+  status: {in_progress: 0, pending: 0, done: 0}
+  list: []    # แต่ละรายการ: {name, detail, status, responsible, start, end, resolution}
+              # ใส่เฉพาะของเดือนนี้เท่านั้น — ตั๋วเดือนก่อนให้แยกไป history.yaml (ดู README)
+
+# --- 8. Scope of Work check ---------------------------------------------------------
+scope_of_work:
+  - {item: null, delivered: null}   # delivered: true/false
+
+# --- 9. Recommendations --------------------------------------------------------------
+recommendations:
+  - {priority: high, text: null}    # priority: high | medium | low
+
+sign_off:
+  client_signer_name: null
+  client_signed_date: null
