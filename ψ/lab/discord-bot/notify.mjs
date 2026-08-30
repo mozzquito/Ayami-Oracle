@@ -4,9 +4,12 @@
 // token/channel as the "สรุปงาน" feature so notifications come from the same bot identity.
 //
 // Usage: echo "message text" | node notify.mjs
+//        echo "message text" | node notify.mjs /path/to/image.jpg   # attach an image too
 
 import 'dotenv/config'
-import { Client, GatewayIntentBits, Events } from 'discord.js'
+import { Client, GatewayIntentBits, Events, AttachmentBuilder } from 'discord.js'
+
+const imagePath = process.argv[2] || null
 
 const { DISCORD_BOT_TOKEN, REPORT_CHANNEL_ID } = process.env
 
@@ -35,7 +38,9 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] })
 client.once(Events.ClientReady, async () => {
   try {
     const channel = await client.channels.fetch(REPORT_CHANNEL_ID)
-    await channel.send(FENCE + body + '\n```')
+    const payload = { content: FENCE + body + '\n```' }
+    if (imagePath) payload.files = [new AttachmentBuilder(imagePath)]
+    await channel.send(payload)
   } catch (err) {
     console.error('notify.mjs: send failed —', err.message)
     process.exitCode = 1
