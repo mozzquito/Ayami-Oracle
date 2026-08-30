@@ -1,5 +1,4 @@
-import { config } from "./config.js";
-import type { EnhancedPhoto, RenderResult, VoiceoverResult } from "./types.js";
+import type { EnhancedPhoto, PipelineConfig, RenderResult, VoiceoverResult } from "./types.js";
 
 // Fully verified live 2026-08-27 against the real Creatomate API:
 //   - POST /v1/renders with {source:{output_format,width,height,duration,elements}}
@@ -85,11 +84,11 @@ function buildSource(
   };
 }
 
-async function pollUntilDone(id: string): Promise<CreatomateStatusResponse> {
+async function pollUntilDone(id: string, cfg: PipelineConfig): Promise<CreatomateStatusResponse> {
   for (let i = 0; i < MAX_POLLS; i++) {
     await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
     const res = await fetch(`${CREATOMATE_BASE}/renders/${id}`, {
-      headers: { Authorization: `Bearer ${config.creatomateApiKey}` },
+      headers: { Authorization: `Bearer ${cfg.creatomateApiKey}` },
     });
     if (!res.ok) throw new Error(`Creatomate poll ${res.status}: ${await res.text()}`);
     const data = (await res.json()) as CreatomateStatusResponse;
@@ -102,13 +101,14 @@ export async function renderVideo(
   photos: EnhancedPhoto[],
   voiceover: VoiceoverResult,
   agentName: string,
-  agentPhone: string
+  agentPhone: string,
+  cfg: PipelineConfig
 ): Promise<RenderResult> {
   const source = buildSource(photos, voiceover, agentName, agentPhone);
   const res = await fetch(`${CREATOMATE_BASE}/renders`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${config.creatomateApiKey}`,
+      Authorization: `Bearer ${cfg.creatomateApiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ source }),
@@ -116,7 +116,7 @@ export async function renderVideo(
   if (!res.ok) throw new Error(`Creatomate create ${res.status}: ${await res.text()}`);
   const [created] = (await res.json()) as CreatomateCreateResponse[];
 
-  const done = await pollUntilDone(created.id);
+  const done = await pollUntilDone(created.id, cfg);
   if (done.status === "failed" || !done.url) {
     throw new Error(`Creatomate render failed: ${done.error_message ?? "unknown error"}`);
   }

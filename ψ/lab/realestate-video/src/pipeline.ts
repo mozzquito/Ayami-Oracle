@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 import { Command } from "commander";
+import { loadConfig } from "./config.js";
 import { enhancePhotos } from "./enhance.js";
 import { writeScript } from "./script.js";
 import { generateVoiceover, DEFAULT_THAI_VOICE } from "./voiceover.js";
 import { renderVideo } from "./render.js";
 import type { PropertyInput } from "./types.js";
+
+const cfg = loadConfig();
 
 const program = new Command();
 
@@ -42,20 +45,20 @@ async function main() {
   console.log(`▸ 1/4 enhancing ${input.photoUrls.length} photo(s)...`);
   const photos = opts.skipEnhance
     ? input.photoUrls.map((originalUrl) => ({ originalUrl, enhancedUrl: originalUrl, fellBackToOriginal: true }))
-    : await enhancePhotos(input.photoUrls);
+    : await enhancePhotos(input.photoUrls, cfg);
   const fellBack = photos.filter((p) => p.fellBackToOriginal).length;
   if (fellBack > 0) console.log(`  ⚠ ${fellBack}/${photos.length} photo(s) used original (enhancement skipped or failed)`);
 
   console.log("▸ 2/4 writing Thai script...");
-  const { script, costUsd: scriptCost } = await writeScript(input);
+  const { script, costUsd: scriptCost } = await writeScript(input, cfg);
   console.log(`  script (${script.length} chars, $${scriptCost.toFixed(6)}):\n  ${script.replace(/\n/g, "\n  ")}`);
 
   console.log("▸ 3/4 generating Thai voiceover...");
-  const voiceover = await generateVoiceover(script, opts.voice);
+  const voiceover = await generateVoiceover(script, opts.voice, cfg);
   console.log(`  audio: ${voiceover.audioUrl} (${voiceover.durationSec}s)`);
 
   console.log("▸ 4/4 rendering video...");
-  const result = await renderVideo(photos, voiceover, input.agentName, input.agentPhone);
+  const result = await renderVideo(photos, voiceover, input.agentName, input.agentPhone, cfg);
   console.log(`\n✓ done: ${result.videoUrl}`);
   console.log(`  ${result.widthPx}x${result.heightPx}, ${(result.fileSizeBytes / 1024).toFixed(0)}KB`);
   if (result.widthPx < 1080) {

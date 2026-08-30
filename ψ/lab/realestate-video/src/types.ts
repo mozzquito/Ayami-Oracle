@@ -32,3 +32,12 @@ export interface RenderResult {
   heightPx: number;
   fileSizeBytes: number;
 }
+
+export interface PipelineConfig {
+  openrouterApiKey: string;
+  falApiKey: string;
+  speechgenApiKey: string;
+  /** SpeechGen's API requires the account email alongside the token on every call. */
+  speechgenEmail?: string;
+  creatomateApiKey: string;
+}

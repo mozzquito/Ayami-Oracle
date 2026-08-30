@@ -1,5 +1,4 @@
-import { config } from "./config.js";
-import type { PropertyInput } from "./types.js";
+import type { PipelineConfig, PropertyInput } from "./types.js";
 
 // Verified live 2026-08-27: endpoint, auth, model slug, and response shape
 // all confirmed with a real Thai-language call (deepseek/deepseek-chat via
@@ -60,11 +59,14 @@ function stripPreamble(raw: string): string {
     .trim();
 }
 
-export async function writeScript(input: PropertyInput): Promise<{ script: string; costUsd: number }> {
+export async function writeScript(
+  input: PropertyInput,
+  cfg: PipelineConfig
+): Promise<{ script: string; costUsd: number }> {
   const res = await fetch(OPENROUTER_ENDPOINT, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${config.openrouterApiKey}`,
+      Authorization: `Bearer ${cfg.openrouterApiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
