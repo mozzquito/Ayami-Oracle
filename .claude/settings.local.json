@@ -14,21 +14,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "say -v 'Kanya' -r 280 'สวัสดีค่ะ พร้อมทำงานแล้ว' &"
-          },
-          {
-            "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/scripts/agent-identity.sh"
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "say -v 'Kanya' -r 280 'เสร็จแล้วค่ะ' &"
           }
         ]
       }
@@ -66,7 +52,7 @@
     ]
   },
   "enabledPlugins": {
-    "claude-voice-notify@claude-voice-notify": true
+    "claude-voice-notify@claude-voice-notify": false
   },
   "extraKnownMarketplaces": {},
   "spinnerTipsEnabled": false

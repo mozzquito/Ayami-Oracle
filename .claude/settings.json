@@ -13,25 +13,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "nohup say -v 'Kanya' -r 280 'สวัสดีค่ะ พร้อมทำงานแล้ว' >/dev/null 2>&1 & true"
-          },
-          {
-            "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/scripts/agent-identity.sh"
           },
           {
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/scripts/show-latest-handoff.sh"
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "say -v 'Kanya' -r 280 'เสร็จแล้วค่ะ' &"
           }
         ]
       }
