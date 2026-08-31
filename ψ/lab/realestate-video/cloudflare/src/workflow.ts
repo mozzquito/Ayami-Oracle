@@ -23,7 +23,8 @@ export class RealEstateVideoWorkflow extends WorkflowEntrypoint<Env, Params> {
     const { jobId, input } = event.payload;
     const cfg: PipelineConfig = {
       openrouterApiKey: this.env.OPENROUTER_API_KEY,
-      falApiKey: this.env.FAL_API_KEY,
+      cloudflareApiToken: this.env.CLOUDFLARE_API_TOKEN,
+      cloudflareAccountId: this.env.CLOUDFLARE_ACCOUNT_ID,
       speechgenApiKey: this.env.SPEECHGEN_API_KEY,
       speechgenEmail: this.env.SPEECHGEN_EMAIL,
       creatomateApiKey: this.env.CREATOMATE_API_KEY,

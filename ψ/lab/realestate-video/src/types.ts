@@ -35,7 +35,11 @@ export interface RenderResult {
 
 export interface PipelineConfig {
   openrouterApiKey: string;
-  falApiKey: string;
+  /** Cloudflare API Token with Workers AI run permission — used for photo enhancement
+   * (pruna/p-image-upscale). Replaces fal.ai as of 2026-08-31 (fal.ai account locked,
+   * needs a credit top-up — see README "Known gaps"). */
+  cloudflareApiToken: string;
+  cloudflareAccountId: string;
   speechgenApiKey: string;
   /** SpeechGen's API requires the account email alongside the token on every call. */
   speechgenEmail?: string;

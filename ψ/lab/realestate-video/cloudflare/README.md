@@ -24,18 +24,25 @@ directly (built-in per-step retry, survives Worker timeouts) with no Container n
 
 - ✅ `npm run typecheck` passes
 - ✅ D1 database `realestate-video-db` created and migrated (remote)
-- ❌ **Not deployed.** `wrangler deploy` not run yet.
-- ❌ **No API keys configured as Worker secrets yet** — see Setup below.
-- ❌ **Not tested end-to-end** — same 3 blockers as the CLI prototype apply here
-  unchanged (see `../README.md`): `SPEECHGEN_EMAIL` unset, fal.ai account needs a credit
-  top-up, Creatomate trial render_scale capped at 0.25.
+- ✅ **Deployed.** Live at `https://realestate-video.phongcheat-phus.workers.dev`
+  (Version ID `7b2ac85d-320c-4189-ad41-9a7c36d9b542`). Smoke-tested (routing, D1 query,
+  input validation) — no real job has been run yet, see below.
+- ❌ **No API keys configured as Worker secrets yet** — see Setup below. Any real job
+  triggered right now will fail immediately on the first step.
+- ❌ **Not tested end-to-end.** Photo enhancement swapped from fal.ai to Cloudflare
+  Workers AI (`pruna/p-image-upscale`) 2026-08-31 — fal.ai's account was locked pending a
+  credit top-up and was never actually verified live either. The swap removes that
+  blocker but is itself unverified against a real call yet. Two blockers carry over
+  unchanged from the CLI prototype (see `../README.md`): `SPEECHGEN_EMAIL` unset,
+  Creatomate trial render_scale capped at 0.25.
 
-## Setup (once the 3 blockers above are cleared)
+## Setup (once the blockers above are cleared)
 
 ```bash
 npm install
 npx wrangler secret put OPENROUTER_API_KEY
-npx wrangler secret put FAL_API_KEY
+npx wrangler secret put CLOUDFLARE_API_TOKEN
+npx wrangler secret put CLOUDFLARE_ACCOUNT_ID
 npx wrangler secret put SPEECHGEN_API_KEY
 npx wrangler secret put SPEECHGEN_EMAIL
 npx wrangler secret put CREATOMATE_API_KEY
@@ -48,7 +55,7 @@ For local dev against the local D1 replica: `npm run db:migrate:local` then `npm
 ## Known gaps not yet addressed (flag before real traffic)
 
 - **`POST /jobs` has no auth.** Anyone with the URL can trigger a job, which spends real
-  money on fal.ai/OpenRouter/SpeechGen/Creatomate credits. Needs at least a shared-secret
+  money on Workers AI/OpenRouter/SpeechGen/Creatomate credits. Needs at least a shared-secret
   header or a real auth scheme before this is reachable from outside your own testing —
   this is on top of, not instead of, the "payment collection" gap already flagged in the
   CLI prototype's README.

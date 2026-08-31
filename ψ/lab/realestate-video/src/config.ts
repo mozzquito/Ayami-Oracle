@@ -21,7 +21,8 @@ function optional(name: string): string | undefined {
 export function loadConfig(): PipelineConfig {
   return {
     openrouterApiKey: required("OPENROUTER_API_KEY"),
-    falApiKey: required("FAL_API_KEY"),
+    cloudflareApiToken: required("CLOUDFLARE_API_TOKEN"),
+    cloudflareAccountId: required("CLOUDFLARE_ACCOUNT_ID"),
     speechgenApiKey: required("SPEECHGEN_API_KEY"),
     // Not resolved yet as of 2026-08-27, see README "Known gaps".
     speechgenEmail: optional("SPEECHGEN_EMAIL"),

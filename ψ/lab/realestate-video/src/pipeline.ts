@@ -24,7 +24,7 @@ program
   .option("--bedrooms <n>")
   .option("--highlights <text>", "extra selling points, freeform")
   .option("--voice <voice>", "SpeechGen Thai voice name", DEFAULT_THAI_VOICE)
-  .option("--skip-enhance", "skip fal.ai photo enhancement (use original photos as-is)", false);
+  .option("--skip-enhance", "skip Workers AI photo enhancement (use original photos as-is)", false);
 
 program.parse();
 const opts = program.opts();

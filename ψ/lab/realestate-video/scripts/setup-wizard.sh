@@ -203,16 +203,22 @@ step "Click 'Create Key', name it something like 'realestate-video-prototype', c
 ask_secret OPENROUTER_API_KEY "Paste the OpenRouter API key:"
 write_env OPENROUTER_API_KEY "$OPENROUTER_API_KEY"
 
-# ── Stage 2: fal.ai (photo enhancement) ────────────────────────────────────
-stage "fal.ai — sign up + API key"
-say "This powers the photo lighting/color enhancement step."
-open_url "https://fal.ai/"
-step "Sign in with Google or GitHub (top right) — new accounts get starter credits."
-open_url "https://fal.ai/dashboard/keys"
-note "if that URL 404s, the menu item is usually called 'Keys' or 'API Keys' under your dashboard/account settings — fal.ai's nav moves around, so look there if the direct link is stale."
-step "Click 'Create key' (or similar), copy the key (shown once)."
-ask_secret FAL_API_KEY "Paste the fal.ai API key:"
-write_env FAL_API_KEY "$FAL_API_KEY"
+# ── Stage 2: Cloudflare Workers AI (photo enhancement) ──────────────────────
+stage "Cloudflare — API token for Workers AI"
+say "This powers the photo enhancement step (pruna/p-image-upscale on Workers AI)."
+say "Replaced fal.ai 2026-08-31 — that account got locked pending a credit top-up"
+say "and was never actually verified live. Same Cloudflare account already used"
+say "for the MCP servers and 'wrangler login' — no new signup needed."
+open_url "https://dash.cloudflare.com/profile/api-tokens"
+step "Click 'Create Token' -> 'Create Custom Token'."
+step "Give it Account > Workers AI > Edit permission, scoped to your account."
+step "Create it, copy the token (shown once)."
+ask_secret CLOUDFLARE_API_TOKEN "Paste the Cloudflare API token:"
+write_env CLOUDFLARE_API_TOKEN "$CLOUDFLARE_API_TOKEN"
+note "Account ID is on the right sidebar of any zone's Overview page in the"
+note "Cloudflare dashboard, or run: wrangler whoami"
+ask CLOUDFLARE_ACCOUNT_ID "Paste your Cloudflare Account ID:"
+write_env CLOUDFLARE_ACCOUNT_ID "$CLOUDFLARE_ACCOUNT_ID"
 
 # ── Stage 3: SpeechGen (Thai TTS) ──────────────────────────────────────────
 stage "SpeechGen.io — sign up + API access"
@@ -250,7 +256,7 @@ write_env CREATOMATE_API_KEY "$CREATOMATE_API_KEY"
 # ── Stage 5: Verify nothing was skipped ────────────────────────────────────
 stage "Verify"
 say "Checking that all 4 services have a key on file (values themselves stay hidden)."
-for pair in "OPENROUTER_API_KEY:OpenRouter" "FAL_API_KEY:fal.ai" "SPEECHGEN_API_KEY:SpeechGen" "CREATOMATE_API_KEY:Creatomate"; do
+for pair in "OPENROUTER_API_KEY:OpenRouter" "CLOUDFLARE_API_TOKEN:Cloudflare" "CLOUDFLARE_ACCOUNT_ID:Cloudflare Account ID" "SPEECHGEN_API_KEY:SpeechGen" "CREATOMATE_API_KEY:Creatomate"; do
   key="${pair%%:*}"; label="${pair##*:}"
   val=$(_existing "$key" || true)
   if [[ -n "$val" ]]; then
