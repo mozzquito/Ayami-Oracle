@@ -35,24 +35,24 @@ export class RealEstateVideoWorkflow extends WorkflowEntrypoint<Env, Params> {
         return enhancePhotos(input.photoUrls, cfg);
       });
 
-      const script = await step.do("write-script", API_STEP_CONFIG, async () => {
+      const { script } = await step.do("write-script", API_STEP_CONFIG, async () => {
         await this.setStatus(jobId, "scripting");
         const result = await writeScript(input, cfg);
         await this.env.DB.prepare(
-          "UPDATE jobs SET script = ?, updated_at = datetime('now') WHERE id = ?"
+          "UPDATE jobs SET script = ?, script_cost_usd = ?, updated_at = datetime('now') WHERE id = ?"
         )
-          .bind(result.script, jobId)
+          .bind(result.script, result.costUsd, jobId)
           .run();
-        return result.script;
+        return { script: result.script, scriptCostUsd: result.costUsd };
       });
 
       const voiceover = await step.do("generate-voiceover", API_STEP_CONFIG, async () => {
         await this.setStatus(jobId, "voiceover");
         const result = await generateVoiceover(script, undefined, cfg);
         await this.env.DB.prepare(
-          "UPDATE jobs SET audio_url = ?, updated_at = datetime('now') WHERE id = ?"
+          "UPDATE jobs SET audio_url = ?, voiceover_cost_usd = ?, updated_at = datetime('now') WHERE id = ?"
         )
-          .bind(result.audioUrl, jobId)
+          .bind(result.audioUrl, result.costUsd ?? null, jobId)
           .run();
         return result;
       });
