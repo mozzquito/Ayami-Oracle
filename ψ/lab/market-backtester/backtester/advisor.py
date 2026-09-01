@@ -114,11 +114,11 @@ def _live_price_deviation_warning(symbol: str, market: str, reference_price: flo
         # logs alone whether staleness checks were even running.
         print(f"advisor: live-price staleness check failed for {symbol} ({market}): {e}", file=sys.stderr)
         return None
-    print(f"advisor: live-price check for {symbol} — live={live_price:.5f} reference={reference_price:.5f}", file=sys.stderr)
+    print(f"advisor: live-price check for {symbol} — live={live_price:.10f} reference={reference_price:.10f}", file=sys.stderr)
     deviation_pct = (live_price / reference_price - 1) * 100
     if abs(deviation_pct) < _STALE_PRICE_THRESHOLD_PCT:
         return None
-    return f"    ⚠️ ราคาล่าสุดตอนนี้ {live_price:.5f} (ห่างจากราคาที่สัญญาณคำนวณไว้ {deviation_pct:+.2f}%) — เช็คก่อนว่ายังน่าเข้าไหม"
+    return f"    ⚠️ ราคาล่าสุดตอนนี้ {live_price:.10f} (ห่างจากราคาที่สัญญาณคำนวณไว้ {deviation_pct:+.2f}%) — เช็คก่อนว่ายังน่าเข้าไหม"
 
 
 def _state_path(symbol: str, market: str, strategy: str) -> Path:
@@ -206,7 +206,7 @@ def advise(
     signal_now = int(signal.iloc[-1])
 
     lines = [
-        f"{symbol} ({market}) — {strategy_name}  |  ข้อมูลล่าสุด ณ {as_of} (Close={latest_close:.5f})",
+        f"{symbol} ({market}) — {strategy_name}  |  ข้อมูลล่าสุด ณ {as_of} (Close={latest_close:.10f})",
         "-" * 60,
     ]
 
@@ -270,7 +270,7 @@ def advise(
             )
 
             label = {"stop": "โดน STOP-LOSS", "target": "ถึงเป้า TAKE-PROFIT", "signal": "สัญญาณกลยุทธ์บอกให้ออก"}[exit_reason]
-            lines.append(f">>> {label} ที่ {exit_price:.5f} — ปิดสถานะ")
+            lines.append(f">>> {label} ที่ {exit_price:.10f} — ปิดสถานะ")
             lines.append(f"    กำไร/ขาดทุน: {pnl:+,.2f} ({return_pct*100:+.2f}%)")
             lines.append(f"    เงินสดคงเหลือ: {state['cash']:,.2f}")
             # Originally treated as "informational only" — wrong. Anyone actually holding a
@@ -281,15 +281,15 @@ def advise(
             if quick_link:
                 lines.append(f"    🔗 เปิดหน้าเทรด: {quick_link}")
             lines.append("    ⚡ ถ้าขายไม้นี้จริงแล้ว ตอบ ✅ ใต้ข้อความนี้ — ถ้ายังไม่ได้ขาย ตอบ ❌")
-            lines.append(f"[trade-exit:{symbol}:{market}:price={exit_price:.5f}:reason={exit_reason}:pnl={pnl:+.2f}]")
+            lines.append(f"[trade-exit:{symbol}:{market}:price={exit_price:.10f}:reason={exit_reason}:pnl={pnl:+.2f}]")
         else:
             unrealized = state["shares"] * latest_close - state["cost_basis"]
-            lines.append(f"สถานะ: ถือ LONG อยู่ (เข้าเมื่อ {state['entry_date']} ที่ {state['entry_price']:.5f})")
+            lines.append(f"สถานะ: ถือ LONG อยู่ (เข้าเมื่อ {state['entry_date']} ที่ {state['entry_price']:.10f})")
             lines.append(f"กำไร/ขาดทุนที่ยังไม่รับรู้: {unrealized:+,.2f}")
             if stop_level:
-                lines.append(f"Stop-loss: {stop_level:.5f}  (ห่างจากราคาปัจจุบัน {(latest_close/stop_level-1)*100:+.2f}%)")
+                lines.append(f"Stop-loss: {stop_level:.10f}  (ห่างจากราคาปัจจุบัน {(latest_close/stop_level-1)*100:+.2f}%)")
             if target_level:
-                lines.append(f"Take-profit: {target_level:.5f}  (ห่างจากราคาปัจจุบัน {(latest_close/target_level-1)*100:+.2f}%)")
+                lines.append(f"Take-profit: {target_level:.10f}  (ห่างจากราคาปัจจุบัน {(latest_close/target_level-1)*100:+.2f}%)")
             lines.append(">>> คำแนะนำ: ถือต่อ (HOLD)")
 
     if not state["in_position"] and just_exited:
@@ -328,11 +328,11 @@ def advise(
                     target_level=target_level,
                 )
                 record_entry(symbol, market, strategy_name, as_of, fill_price)
-                lines.append(f">>> คำแนะนำ: เข้า LONG ที่ ~{fill_price:.5f}, ขนาด {shares:,.4f} หน่วย (ใช้เงิน {cost_basis:,.2f})")
+                lines.append(f">>> คำแนะนำ: เข้า LONG ที่ ~{fill_price:.10f}, ขนาด {shares:,.4f} หน่วย (ใช้เงิน {cost_basis:,.2f})")
                 if stop_level:
-                    lines.append(f"    ตั้ง stop-loss ที่ {stop_level:.5f}")
+                    lines.append(f"    ตั้ง stop-loss ที่ {stop_level:.10f}")
                 if target_level:
-                    lines.append(f"    ตั้ง take-profit ที่ {target_level:.5f}")
+                    lines.append(f"    ตั้ง take-profit ที่ {target_level:.10f}")
                 staleness_warning = _live_price_deviation_warning(symbol, market, fill_price)
                 if staleness_warning:
                     lines.append(staleness_warning)
@@ -340,10 +340,10 @@ def advise(
                 if quick_link:
                     lines.append(f"    🔗 เปิดหน้าเทรด: {quick_link}")
                 lines.append("    ⚡ ถ้าเข้าไม้นี้จริง ตอบ ✅ ใต้ข้อความนี้ — ถ้าข้าม ตอบ ❌ (ไม่ต้องพิมพ์อะไรเพิ่ม)")
-                stop_str = f"{stop_level:.5f}" if stop_level else "none"
-                target_str = f"{target_level:.5f}" if target_level else "none"
+                stop_str = f"{stop_level:.10f}" if stop_level else "none"
+                target_str = f"{target_level:.10f}" if target_level else "none"
                 lines.append(
-                    f"[trade-signal:{symbol}:{market}:entry={fill_price:.5f}:stop={stop_str}:target={target_str}:size={shares:.6f}]"
+                    f"[trade-signal:{symbol}:{market}:entry={fill_price:.10f}:stop={stop_str}:target={target_str}:size={shares:.6f}]"
                 )
             else:
                 lines.append(">>> สัญญาณอยากเข้า LONG แต่คำนวณขนาดออเดอร์ได้ 0 (เช็ค --stop-pct/--risk-pct)")

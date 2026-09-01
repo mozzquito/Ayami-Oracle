@@ -127,6 +127,49 @@ SYMBOLS = [
         "stop_pct": 0.03,
         "target_pct": 0.06,
     },
+    # Added 2026-09-01 (user's explicit pick, after reviewing real backtest numbers for
+    # 10 candidate coins). All three showed the strategy generating real gains while the
+    # underlying coin itself fell over the same window (2023-2026) — a stronger signal of
+    # genuine edge than riding a bull market the way SOL/TRX's numbers partly reflect.
+    # Real risk disclosed and accepted: drawdowns here (-50% to -58%) are the highest of
+    # anything in this watchlist except NEAR. Note: MAX_CONCURRENT_POSITIONS["crypto"]=2
+    # is unchanged — these 3 compete for the same 2 crypto slots as the existing 6, not
+    # additional dedicated slots.
+    {
+        "symbol": "DOGE",
+        "market": "crypto",
+        # Backtested +55.6% vs buy-hold +17.4% (2023-2026) — book_rsi_ma_mtf beat holding.
+        "strategy_name": "book_rsi_ma_mtf",
+        "params": {},
+        "capital": 10,
+        "sizing_mode": "fixed",
+        "stop_pct": 0.05,
+        "target_pct": 0.10,
+    },
+    {
+        "symbol": "AVAX",
+        "market": "crypto",
+        # Backtested +78.4% vs buy-hold -33.3% — book_rsi_ma_mtf profited while the coin lost.
+        "strategy_name": "book_rsi_ma_mtf",
+        "params": {},
+        "capital": 10,
+        "sizing_mode": "fixed",
+        "stop_pct": 0.05,
+        "target_pct": 0.10,
+    },
+    {
+        "symbol": "SHIB",
+        "market": "crypto",
+        # Backtested +136.9% vs buy-hold -36.1% — best raw return of anything tested this
+        # session, but also -57.7% max-drawdown and 302 trades (very active). Uses
+        # config.STRATEGY_STOP_TARGET_PCT's tuned rsrs_trend crypto distance.
+        "strategy_name": "rsrs_trend",
+        "params": {},
+        "capital": 10,
+        "sizing_mode": "fixed",
+        "stop_pct": 0.025,
+        "target_pct": 0.05,
+    },
 ]
 
 
