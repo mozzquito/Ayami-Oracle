@@ -15,12 +15,16 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 ENVIRONMENT_ID="fdb22b45-c55d-4b28-9b81-6786051e4c4a"   # production environment, market-backtester-advise project
-SERVICE_ID="9e4ab1e4-c7a3-47a2-bb3a-e47f51766971"        # market-backtester-advise service
+SERVICE_ID="910c3b74-ecfe-492b-9cd4-3b67f7309671"        # market-backtester-advise service
 # Rebuilt 2026-08-27 — the original "mozzquito's Projects" workspace (and every ID it
 # contained) was deleted; these are the new project's IDs after a from-scratch rebuild.
-# SERVICE_ID corrected 2026-08-28 — the value here previously (910c3b74...) did not match
-# any live service; re-derived the real one via `railway status --json`, matched by which
-# service actually carries cronSchedule="0 * * * *".
+# CORRECTION 2026-09-01: this was briefly "fixed" on 2026-08-28 to 9e4ab1e4... — that was
+# wrong. Railway's GraphQL `serviceId` param here wants the top-level Service ID (project-
+# scoped), but 9e4ab1e4 was derived from `railway status --json`'s serviceInstances[].id,
+# which is a ServiceInstance ID (environment-scoped) — a different ID for the same logical
+# service. Confirmed 910c3b74 is correct via the build-log URL `railway up --service
+# market-backtester-advise` generates (.../service/910c3b74.../), which is Railway's own
+# authoritative resolution of the service name to its top-level ID.
 CRON_SCHEDULE="0 * * * *"                                # every 1h = 24x/day (was every 2h; มอส asked for hourly 2026-08-28)
 
 echo "== 1/3: deploying code via railway up =="
