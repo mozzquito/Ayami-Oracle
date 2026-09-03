@@ -1,21 +1,23 @@
 import type { PipelineConfig, VoiceoverResult } from "./types.js";
 
 // Endpoint, param names, and response shape confirmed from SpeechGen's own
-// docs (speechgen.io/en/node/api/) on 2026-08-27 — NOT yet live-tested,
-// because SPEECHGEN_EMAIL is still missing (their API requires email + token
-// together on every call, not just the token). Two things to verify the
-// first time this actually runs:
-//   1. Body encoding — the ?r=api/text URL shape is a classic PHP-framework
-//      router, which usually means form-urlencoded POST, not JSON. This
-//      implementation sends form-urlencoded on that basis; if SpeechGen
-//      rejects it, try JSON body instead.
-//   2. Thai voice name — SpeechGen's docs didn't list Thai voices by name.
-//      DEFAULT_THAI_VOICE below is a placeholder, not a verified value.
-//      Check https://speechgen.io/index.php?r=api/voices (or the account's
-//      voice picker in the dashboard) for the real Thai voice name and pass
-//      it via --voice before trusting this in production.
+// docs (speechgen.io/en/node/api/) on 2026-08-27 — the text-to-speech call
+// itself is still NOT live-tested (blocked on SPEECHGEN_EMAIL). One thing
+// still unverified:
+//   - Body encoding — the ?r=api/text URL shape is a classic PHP-framework
+//     router, which usually means form-urlencoded POST, not JSON. This
+//     implementation sends form-urlencoded on that basis; if SpeechGen
+//     rejects it, try JSON body instead.
+//
+// Thai voice name VERIFIED live 2026-08-31 — POST to
+// https://speechgen.io/index.php?r=api/voices with just the token (no email
+// needed for this endpoint) returned a real "Thai" voice list. "Achara" is
+// the cheapest (cpm 1000, "pro" tier) dedicated Thai female voice; the rest
+// are generic multi-language "hd" voices with a "TH" suffix. Not yet
+// confirmed how it actually sounds — only that the name is real and won't
+// 404/error on the text-to-speech call for that reason.
 const SPEECHGEN_ENDPOINT = "https://speechgen.io/index.php?r=api/text";
-export const DEFAULT_THAI_VOICE = "REPLACE_WITH_REAL_THAI_VOICE_NAME";
+export const DEFAULT_THAI_VOICE = "Achara";
 
 interface SpeechGenResponse {
   status: number;

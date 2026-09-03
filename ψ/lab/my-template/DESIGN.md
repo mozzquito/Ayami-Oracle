@@ -421,11 +421,25 @@ corrections, all in the commits' own messages, summarized here):
   no domain-specific event table needed) — a real second domain reusing the table is a
   future fork's own `TableOwnership` update, not blocked by anything built here.
 
-**Deferred, explicitly, not forgotten:** rate limiting (per-key and global) from §2 was
-scoped out of this Develop pass — schema/scope/pause landed and are tested; a token-bucket
-middleware needs its own careful test pass this session didn't have room for. Also
-deferred: `ip_address`/`user_agent` on `activity_log`, multi-tenant `workspace_id`,
-SKILL.md drift-check in CI, Docker image publish, `gosec`/`npm audit`.
+**Update 2026-08-31 (later same day): rate limiting shipped too** —
+`164eaad` on `mozzquito/my-template`. `rate_limit_per_min` added to `api_keys` via a real
+`ALTER TABLE` migration (the first one in this fork's history to use that pattern instead
+of editing an original `CREATE TABLE` — everything before this had zero real deployments
+to preserve; this is what a later, genuine schema change on this fork looks like).
+`internal/platform/ratelimit.go`: an in-memory keyed token-bucket `RateLimiter`
+(`golang.org/x/time/rate`), both `DEFAULT_RATE_LIMIT_PER_MIN`/`GLOBAL_RATE_LIMIT_PER_MIN`
+defaulting to `0` (unlimited) — opt-in, matching `SESSION_SECRET`'s own established
+"never silently enable a behavior nobody configured" pattern, a call made during Develop
+that DESIGN.md's own §2 draft hadn't specified either way. `cmd/issue-key -rate-limit`;
+`Rotate` carries the existing key's rate limit forward unconditionally (same reasoning as
+the scopes-preservation fix below). Caught one real bug before shipping: mixing
+`sqlc.narg` with bare `?` placeholders in the same `INSERT` desyncs sqlc's positional
+numbering from `modernc.org/sqlite`'s — the exact bug class `todo_events.sql`'s own
+comments already named; fixed to bare `?` throughout.
+
+**Deferred, explicitly, not forgotten:** `ip_address`/`user_agent` on `activity_log`,
+multi-tenant `workspace_id`, SKILL.md drift-check in CI, Docker image publish,
+`gosec`/`npm audit`.
 
 **Verification**: every commit has `go build/vet/test` green, `gofmt` clean, and (where the
 change could touch it) `web`'s `npm run typecheck` + `npm test` green — recorded in each

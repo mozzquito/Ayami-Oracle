@@ -47,3 +47,18 @@ Thumbs.db
 ψ-context/
 .env
 .env
+
+# PlatformIO
+.pio/
+
+# Secrets (WiFi creds, API keys) - keep the .example template tracked instead
+ψ/lab/esp32-zcode-chat/include/secrets.h
+
+# Vim swap files
+*.swp
+
+# Mimosa hook local state (per-project runtime cache, not source)
+.mimosa/
+
+# Playwright MCP session artifacts (console logs, page snapshots)
+.playwright-mcp/
