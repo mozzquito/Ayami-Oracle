@@ -39,18 +39,30 @@ VALID_MARKETS = tuple(MARKET_SUFFIX.keys())
 # Correlation guard (added 2026-08-15, agy's suggestion): crypto symbols in
 # cloud_run.py's watchlist tend to move together (>0.85 correlation in practice) — a
 # broad crypto rally can fire multiple entry signals simultaneously, which isn't really
-# N independent bets, it's one leveraged bet on "crypto goes up" wearing N costumes. Caps
-# how many positions can be open at once per market, independent of how many symbols
-# in that market currently show a bullish signal.
+# N independent bets, it's one leveraged bet on "crypto goes up" wearing N costumes.
 #
-# crypto raised 2->3 on 2026-09-08 (user's explicit call): watchlist grew from 6 to 9
-# crypto symbols (DOGE/AVAX/SHIB added 2026-09-01) but the cap stayed at the original
-# value, and 3 real bullish signals were observed blocked simultaneously (BNB/DOGE/AVAX)
-# on the same day — the cap hadn't kept pace with the larger candidate pool. Raises max
-# crypto exposure from $20 to $30 (paper capital, $10/position, fixed sizing).
-MAX_CONCURRENT_POSITIONS = {
-    "crypto": 3,
-    "forex": 2,
+# Redesigned 2026-09-08 (user's explicit call, after reporting $50 real capital in their
+# exchange account — $10/position means 5 concurrent positions is what that capital
+# actually supports, system-wide, not per-market): was a per-market dict ({"crypto": 3,
+# "forex": 2}, raised from {"crypto": 2, "forex": 2} earlier the same day). Replaced with
+# ONE shared total across both markets, since the real constraint (account capital)
+# doesn't care which market a position is in.
+#
+# A pure shared pool has a real failure mode zcode and agy both independently flagged:
+# crypto has 9 symbols (vs forex's 3) and they tend to signal together, so an unguarded
+# shared pool of 5 lets crypto claim every slot the moment a rally fires 5+ signals at
+# once — forex gets zero room, not because its own signals were weak, but purely because
+# crypto's signals arrived first in cloud_run.py's SYMBOLS list (first-come-first-served
+# processing order). MAX_PER_MARKET below is the fix both agreed on: cap crypto's share
+# of the shared pool below the total, so forex is guaranteed room even in a crypto rally.
+MAX_CONCURRENT_POSITIONS = 5  # shared total across every market combined
+
+MAX_PER_MARKET = {
+    "crypto": 4,  # leaves >=1 of the shared 5 for forex even if crypto wants all 5
+    # forex has no entry here deliberately — its own watchlist is only 3 symbols, well
+    # under the shared total, so it doesn't need (and shouldn't get) an extra sub-cap on
+    # top of the total-5 check; the whole point of giving crypto a sub-cap is to protect
+    # forex's share, not to also constrain forex further.
 }
 
 # Per-strategy stop/target overrides, keyed by market. Only strategies that have been

@@ -16,7 +16,7 @@ from zoneinfo import ZoneInfo
 BANGKOK_TZ = ZoneInfo("Asia/Bangkok")
 
 from .advisor import advise, is_in_position
-from .config import MAX_CONCURRENT_POSITIONS
+from .config import MAX_CONCURRENT_POSITIONS, MAX_PER_MARKET
 from .notify import send_discord_message, send_discord_message_to_channel
 from .trade_store import record_heartbeat
 from . import sentiment
@@ -132,10 +132,10 @@ SYMBOLS = [
     # underlying coin itself fell over the same window (2023-2026) — a stronger signal of
     # genuine edge than riding a bull market the way SOL/TRX's numbers partly reflect.
     # Real risk disclosed and accepted: drawdowns here (-50% to -58%) are the highest of
-    # anything in this watchlist except NEAR. These 3 compete for crypto's shared
-    # correlation-guard slots with the existing 6 (see config.MAX_CONCURRENT_POSITIONS,
-    # raised 2->3 on 2026-09-08 once the 9-symbol pool started blocking 3 real signals
-    # at once against the old 2-slot cap).
+    # anything in this watchlist except NEAR. These 3 compete for crypto's share of the
+    # shared correlation-guard pool with the existing 6 (see config.MAX_CONCURRENT_POSITIONS
+    # / MAX_PER_MARKET — the guard was redesigned 2026-09-08 into one total pool across
+    # markets, with crypto individually sub-capped so it can't claim the whole pool).
     {
         "symbol": "DOGE",
         "market": "crypto",
@@ -178,15 +178,20 @@ def main() -> int:
     header = f"=== {datetime.now(BANGKOK_TZ).strftime('%Y-%m-%d %H:%M:%S')} ICT ==="
     print(header)
 
-    # Correlation guard: count positions already open per market before this run starts,
-    # then keep the count updated as entries/exits happen *during* this same run — a
-    # market that's already at its cap shouldn't let a 3rd, 4th, 5th signal squeeze in
-    # just because they all fired in the same pass.
-    open_counts: dict[str, int] = {}
+    # Correlation guard: count positions already open (total, and per-market for the
+    # MAX_PER_MARKET sub-cap) before this run starts, then keep both counts updated as
+    # entries/exits happen *during* this same run — a market that's already at its cap
+    # shouldn't let a 3rd, 4th, 5th signal squeeze in just because they all fired in the
+    # same pass. See config.py for why the total is shared across markets (reflects real
+    # account capital) while crypto additionally has its own sub-cap (protects forex's
+    # share of that shared total from being claimed entirely by a crypto rally).
+    total_open = 0
+    market_open: dict[str, int] = {}
     for cfg in SYMBOLS:
         market = cfg["market"]
         if is_in_position(cfg["symbol"], market, cfg["strategy_name"], cfg["capital"]):
-            open_counts[market] = open_counts.get(market, 0) + 1
+            total_open += 1
+            market_open[market] = market_open.get(market, 0) + 1
 
     # Every ENTER and EXIT goes out as its own Discord message with an @mention — both are
     # real decision windows for anyone holding a matching real position (2026-08-21: a
@@ -199,9 +204,11 @@ def main() -> int:
     crypto_signal_now: dict[str, int] = {}  # symbol -> this run's technical signal, for the sentiment overlay below
     for cfg in SYMBOLS:
         market = cfg["market"]
-        cap = MAX_CONCURRENT_POSITIONS.get(market)
+        market_cap = MAX_PER_MARKET.get(market)
         was_open = is_in_position(cfg["symbol"], market, cfg["strategy_name"], cfg["capital"])
-        allow_entry = cap is None or open_counts.get(market, 0) < cap
+        allow_entry = total_open < MAX_CONCURRENT_POSITIONS and (
+            market_cap is None or market_open.get(market, 0) < market_cap
+        )
 
         result = advise(**cfg, allow_entry=allow_entry)
         print(result.report)
@@ -212,9 +219,11 @@ def main() -> int:
             urgent_reports.append(result.report)
             is_open_now = is_in_position(cfg["symbol"], market, cfg["strategy_name"], cfg["capital"])
             if is_open_now and not was_open:
-                open_counts[market] = open_counts.get(market, 0) + 1
+                total_open += 1
+                market_open[market] = market_open.get(market, 0) + 1
             elif was_open and not is_open_now:
-                open_counts[market] = max(0, open_counts.get(market, 0) - 1)
+                total_open = max(0, total_open - 1)
+                market_open[market] = max(0, market_open.get(market, 0) - 1)
 
     for report in urgent_reports:
         send_discord_message(header + "\n\n" + report, mention_owner=True)

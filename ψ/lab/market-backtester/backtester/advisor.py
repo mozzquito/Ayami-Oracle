@@ -300,7 +300,7 @@ def advise(
         if signal_now == 1 and not allow_entry:
             lines.append(
                 ">>> สัญญาณ BULLISH แต่ถูกบล็อกโดย correlation guard "
-                "(ครบโควตาจำนวนสถานะเปิดพร้อมกันในตลาดนี้แล้ว) — ข้ามไม้นี้"
+                "(ครบโควตาจำนวนสถานะเปิดพร้อมกันแล้ว — รวมทั้งระบบหรือของตลาดนี้) — ข้ามไม้นี้"
             )
         elif signal_now == 1:
             fill_price = latest_close * (1 + slippage_pct)
