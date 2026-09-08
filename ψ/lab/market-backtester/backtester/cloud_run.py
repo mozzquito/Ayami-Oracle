@@ -132,9 +132,10 @@ SYMBOLS = [
     # underlying coin itself fell over the same window (2023-2026) — a stronger signal of
     # genuine edge than riding a bull market the way SOL/TRX's numbers partly reflect.
     # Real risk disclosed and accepted: drawdowns here (-50% to -58%) are the highest of
-    # anything in this watchlist except NEAR. Note: MAX_CONCURRENT_POSITIONS["crypto"]=2
-    # is unchanged — these 3 compete for the same 2 crypto slots as the existing 6, not
-    # additional dedicated slots.
+    # anything in this watchlist except NEAR. These 3 compete for crypto's shared
+    # correlation-guard slots with the existing 6 (see config.MAX_CONCURRENT_POSITIONS,
+    # raised 2->3 on 2026-09-08 once the 9-symbol pool started blocking 3 real signals
+    # at once against the old 2-slot cap).
     {
         "symbol": "DOGE",
         "market": "crypto",

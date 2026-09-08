@@ -36,14 +36,20 @@ MARKET_SUFFIX = {
 
 VALID_MARKETS = tuple(MARKET_SUFFIX.keys())
 
-# Correlation guard (added 2026-08-15, agy's suggestion): the 6 crypto symbols in
+# Correlation guard (added 2026-08-15, agy's suggestion): crypto symbols in
 # cloud_run.py's watchlist tend to move together (>0.85 correlation in practice) — a
-# broad crypto rally can fire 5+ entry signals simultaneously, which isn't really 5
-# independent bets, it's one leveraged bet on "crypto goes up" wearing 5 costumes. Caps
+# broad crypto rally can fire multiple entry signals simultaneously, which isn't really
+# N independent bets, it's one leveraged bet on "crypto goes up" wearing N costumes. Caps
 # how many positions can be open at once per market, independent of how many symbols
 # in that market currently show a bullish signal.
+#
+# crypto raised 2->3 on 2026-09-08 (user's explicit call): watchlist grew from 6 to 9
+# crypto symbols (DOGE/AVAX/SHIB added 2026-09-01) but the cap stayed at the original
+# value, and 3 real bullish signals were observed blocked simultaneously (BNB/DOGE/AVAX)
+# on the same day — the cap hadn't kept pace with the larger candidate pool. Raises max
+# crypto exposure from $20 to $30 (paper capital, $10/position, fixed sizing).
 MAX_CONCURRENT_POSITIONS = {
-    "crypto": 2,
+    "crypto": 3,
     "forex": 2,
 }
 
