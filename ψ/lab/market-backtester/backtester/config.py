@@ -48,22 +48,23 @@ VALID_MARKETS = tuple(MARKET_SUFFIX.keys())
 # ONE shared total across both markets, since the real constraint (account capital)
 # doesn't care which market a position is in.
 #
-# A pure shared pool has a real failure mode zcode and agy both independently flagged:
-# crypto has 9 symbols (vs forex's 3) and they tend to signal together, so an unguarded
-# shared pool of 5 lets crypto claim every slot the moment a rally fires 5+ signals at
-# once — forex gets zero room, not because its own signals were weak, but purely because
-# crypto's signals arrived first in cloud_run.py's SYMBOLS list (first-come-first-served
-# processing order). MAX_PER_MARKET below is the fix both agreed on: cap crypto's share
-# of the shared pool below the total, so forex is guaranteed room even in a crypto rally.
+# A pure shared pool had a real failure mode zcode and agy both independently flagged
+# when forex was still in the watchlist: crypto had 9 symbols (vs forex's 3) and tended
+# to signal together, so an unguarded shared pool of 5 let crypto claim every slot the
+# moment a rally fired 5+ signals at once — forex got zero room, not because its own
+# signals were weak, but purely because crypto's signals arrived first in cloud_run.py's
+# SYMBOLS list (first-come-first-served processing order). MAX_PER_MARKET (below) was
+# the fix both agreed on: cap crypto's share of the shared pool below the total, so
+# forex was guaranteed room even in a crypto rally.
 MAX_CONCURRENT_POSITIONS = 5  # shared total across every market combined
 
-MAX_PER_MARKET = {
-    "crypto": 4,  # leaves >=1 of the shared 5 for forex even if crypto wants all 5
-    # forex has no entry here deliberately — its own watchlist is only 3 symbols, well
-    # under the shared total, so it doesn't need (and shouldn't get) an extra sub-cap on
-    # top of the total-5 check; the whole point of giving crypto a sub-cap is to protect
-    # forex's share, not to also constrain forex further.
-}
+# Empty as of 2026-09-08: forex (EURUSD/GBPUSD/AUDUSD) was removed from cloud_run.py's
+# SYMBOLS entirely (user's explicit call — trading crypto exclusively now). With no
+# second market left to protect, a crypto sub-cap below the shared total would just be
+# an arbitrary extra restriction for no reason — crypto is free to use the full 5.
+# cloud_run.py's guard logic still checks this dict generically (MAX_PER_MARKET.get(
+# market)), so re-adding a market here in the future needs no code change, just a value.
+MAX_PER_MARKET: dict[str, int] = {}
 
 # Per-strategy stop/target overrides, keyed by market. Only strategies that have been
 # explicitly backtest-tuned appear here — everything else falls back to whatever the

@@ -90,52 +90,21 @@ SYMBOLS = [
         "stop_pct": 0.05,
         "target_pct": 0.10,
     },
-    {
-        "symbol": "EURUSD",
-        "market": "forex",
-        "strategy_name": "book_rsi_ma_mtf",
-        "params": {},
-        "capital": 10,
-        "sizing_mode": "fixed",
-        # Forex moves in much smaller % ranges than crypto — a 5% stop would rarely
-        # trigger, so this uses the tighter distance already validated earlier in this
-        # session's testing (--stop-pct 0.03 --target-pct 0.06 on EURUSD).
-        "stop_pct": 0.03,
-        "target_pct": 0.06,
-    },
-    {
-        "symbol": "GBPUSD",
-        "market": "forex",
-        # Trial (2026-08-17, user's explicit pick): rsrs_trend backtested +7.0% / -8.0%
-        # max-drawdown vs book_rsi_ma_mtf's -12.9% / -15.4% on this symbol (2023-2026) —
-        # better on both return AND drawdown, no tradeoff, the safer of the two trial
-        # picks. Uses config.STRATEGY_STOP_TARGET_PCT's tuned forex distance.
-        "strategy_name": "rsrs_trend",
-        "params": {},
-        "capital": 10,
-        "sizing_mode": "fixed",
-        "stop_pct": 0.015,
-        "target_pct": 0.03,
-    },
-    {
-        "symbol": "AUDUSD",
-        "market": "forex",
-        "strategy_name": "book_rsi_ma_mtf",
-        "params": {},
-        "capital": 10,
-        "sizing_mode": "fixed",
-        "stop_pct": 0.03,
-        "target_pct": 0.06,
-    },
+    # Forex (EURUSD, GBPUSD, AUDUSD) removed 2026-09-08 — user's explicit call, trading
+    # crypto exclusively in real life now, wants forex "ปล่อยไป" (left alone) entirely
+    # rather than tracked in the background. GBPUSD and AUDUSD both had real open paper
+    # positions at removal time (entered 2026-08-27 and 2026-09-02) — user explicitly
+    # chose to remove immediately rather than wait for them to close naturally, so those
+    # two positions' `.state/` files on the Railway volume are now orphaned: frozen at
+    # their last-checked state forever, since nothing in SYMBOLS references them anymore
+    # to ever re-check or close them. Harmless (paper capital only), just stale data.
+    #
     # Added 2026-09-01 (user's explicit pick, after reviewing real backtest numbers for
     # 10 candidate coins). All three showed the strategy generating real gains while the
     # underlying coin itself fell over the same window (2023-2026) — a stronger signal of
     # genuine edge than riding a bull market the way SOL/TRX's numbers partly reflect.
     # Real risk disclosed and accepted: drawdowns here (-50% to -58%) are the highest of
-    # anything in this watchlist except NEAR. These 3 compete for crypto's share of the
-    # shared correlation-guard pool with the existing 6 (see config.MAX_CONCURRENT_POSITIONS
-    # / MAX_PER_MARKET — the guard was redesigned 2026-09-08 into one total pool across
-    # markets, with crypto individually sub-capped so it can't claim the whole pool).
+    # anything in this watchlist except NEAR.
     {
         "symbol": "DOGE",
         "market": "crypto",
