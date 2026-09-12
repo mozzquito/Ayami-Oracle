@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ReonAI Roast POC</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #0e0e10; color: #eee; font: 14px/1.4 -apple-system, system-ui, sans-serif; }
+  header { padding: 12px 16px; border-bottom: 1px solid #2a2a2e; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+  header h1 { font-size: 16px; margin: 0; }
+  .readouts { display: flex; gap: 16px; padding: 12px 16px; flex-wrap: wrap; }
+  .readout { background: #17171a; border: 1px solid #2a2a2e; border-radius: 8px; padding: 10px 14px; min-width: 110px; }
+  .readout .label { color: #999; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .readout .value { font-size: 26px; font-weight: 600; margin-top: 2px; }
+  .dt .value { color: #ff9f43; }
+  .ht .value { color: #ff5c5c; }
+  .ror .value { color: #5cc8ff; }
+  #chart { display: block; width: 100%; height: 320px; background: #111113; }
+  .panel { padding: 12px 16px; border-top: 1px solid #2a2a2e; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+  button { background: #26262b; color: #eee; border: 1px solid #3a3a40; border-radius: 6px; padding: 8px 14px; cursor: pointer; font-size: 13px; }
+  button:hover { background: #32323a; }
+  button.primary { background: #3a6df0; border-color: #3a6df0; }
+  button.danger { background: #b02a2a; border-color: #b02a2a; }
+  input[type=range] { width: 200px; }
+  input[type=text] { background: #17171a; border: 1px solid #2a2a2e; color: #eee; border-radius: 6px; padding: 6px 10px; }
+  select { background: #17171a; color: #eee; border: 1px solid #2a2a2e; border-radius: 6px; padding: 6px 10px; }
+  .fault-banner { display: none; background: #4a1414; border: 1px solid #b02a2a; color: #ffb3b3; padding: 10px 16px; }
+  .fault-banner.show { display: block; }
+  .hint { color: #888; font-size: 12px; }
+  ul#logs { list-style: none; padding: 0; margin: 4px 0 0; }
+  ul#logs li { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #222; }
+  a { color: #5cc8ff; }
+</style>
+</head>
+<body>
+<header>
+  <h1>ReonAI Roast POC — monitor &amp; manual duty control</h1>
+  <span id="conn" class="hint">connecting…</span>
+</header>
+
+<div id="faultBanner" class="fault-banner">
+  ⚠ FAULT: <span id="faultReason"></span> — SSR forced off.
+  <button id="resetBtn" class="danger">Reset fault</button>
+</div>
+
+<div class="readouts">
+  <div class="readout dt"><div class="label">DT (bean)</div><div class="value" id="dtVal">--</div></div>
+  <div class="readout ht"><div class="label">HT (heater)</div><div class="value" id="htVal">--</div></div>
+  <div class="readout ror"><div class="label">RoR °C/min</div><div class="value" id="rorVal">--</div></div>
+</div>
+
+<canvas id="chart"></canvas>
+
+<div class="panel">
+  <div class="row">
+    <label>Mode:
+      <select id="modeSelect">
+        <option value="0">Monitor only (SSR always off)</option>
+        <option value="1">Manual duty (person-set, not automatic)</option>
+      </select>
+    </label>
+    <label>Duty: <input type="range" id="dutySlider" min="0" max="100" value="0"> <span id="dutyLabel">0%</span></label>
+    <button id="applyBtn" class="primary">Apply</button>
+  </div>
+  <p class="hint">Monitor mode never drives the heater. Manual duty is a fixed, person-chosen SSR duty cycle for testing the switching path — not closed-loop temperature control. A hardware thermal cutoff independent of this board is required before using Manual duty with a live heater (see README.md).</p>
+</div>
+
+<div class="panel">
+  <div class="row">
+    <input type="text" id="sessionName" placeholder="session name, e.g. yellow-bourbon-1">
+    <input type="text" id="beanType" placeholder="bean type, e.g. Yellow Bourbon">
+    <select id="roastLevel">
+      <option value="">roast level…</option>
+      <option>Light</option>
+      <option>Medium-Light</option>
+      <option>Medium</option>
+      <option>Medium-Dark</option>
+      <option>Dark</option>
+    </select>
+    <input type="number" id="setpointC" placeholder="target °C (optional)" step="0.1" style="width:150px">
+  </div>
+  <div class="row">
+    <button id="startLogBtn" class="primary">Start logging</button>
+    <button id="stopLogBtn">Stop logging</button>
+    <span id="logStatus" class="hint"></span>
+  </div>
+  <p class="hint">Fill these in before each roast — they're written into every row of the CSV so a batch of
+  logged roasts can later be grouped/compared by bean and roast level without a separate lookup file.</p>
+  <ul id="logs"></ul>
+</div>
+
+<script>
+const dtVal = document.getElementById('dtVal');
+const htVal = document.getElementById('htVal');
+const rorVal = document.getElementById('rorVal');
+const conn = document.getElementById('conn');
+const faultBanner = document.getElementById('faultBanner');
+const faultReason = document.getElementById('faultReason');
+const canvas = document.getElementById('chart');
+const ctx = canvas.getContext('2d');
+
+const HISTORY_MAX = 600; // ~10 min at 1Hz
+let dtHist = [], htHist = [];
+
+function resizeCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = canvas.clientWidth * dpr;
+  canvas.height = canvas.clientHeight * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  draw();
+}
+window.addEventListener('resize', resizeCanvas);
+
+function draw() {
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  ctx.clearRect(0, 0, w, h);
+  ctx.strokeStyle = '#222'; ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = (h / 4) * i;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+  }
+  const maxC = 280, minC = 0;
+  const scaleY = v => h - ((v - minC) / (maxC - minC)) * h;
+  function plot(hist, color) {
+    if (hist.length < 2) return;
+    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
+    hist.forEach((v, i) => {
+      const x = (i / (HISTORY_MAX - 1)) * w;
+      const y = scaleY(v);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+  }
+  plot(dtHist, '#ff9f43');
+  plot(htHist, '#ff5c5c');
+}
+
+function pushHist(arr, v) {
+  arr.push(v);
+  if (arr.length > HISTORY_MAX) arr.shift();
+}
+
+const es = new EventSource('/api/events');
+es.addEventListener('state', (e) => {
+  conn.textContent = 'live';
+  const d = JSON.parse(e.data);
+  dtVal.textContent = d.dt == null ? '--' : d.dt.toFixed(1) + '°C';
+  htVal.textContent = d.ht == null ? '--' : d.ht.toFixed(1) + '°C';
+  rorVal.textContent = d.ror == null ? '--' : d.ror.toFixed(1);
+  if (d.dt != null) pushHist(dtHist, d.dt);
+  if (d.ht != null) pushHist(htHist, d.ht);
+  draw();
+  if (d.fault) {
+    faultBanner.classList.add('show');
+    faultReason.textContent = d.faultReason;
+  } else {
+    faultBanner.classList.remove('show');
+  }
+  document.getElementById('logStatus').textContent = d.logging ? 'logging…' : '';
+});
+es.onerror = () => { conn.textContent = 'reconnecting…'; };
+
+document.getElementById('dutySlider').addEventListener('input', (e) => {
+  document.getElementById('dutyLabel').textContent = e.target.value + '%';
+});
+
+document.getElementById('applyBtn').addEventListener('click', () => {
+  const mode = parseInt(document.getElementById('modeSelect').value, 10);
+  const duty = parseInt(document.getElementById('dutySlider').value, 10);
+  fetch('/api/control', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode, duty }) });
+});
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  fetch('/api/reset', { method: 'POST' });
+});
+
+document.getElementById('startLogBtn').addEventListener('click', () => {
+  const name = encodeURIComponent(document.getElementById('sessionName').value || String(Date.now()));
+  const beanType = encodeURIComponent(document.getElementById('beanType').value || '');
+  const roastLevel = encodeURIComponent(document.getElementById('roastLevel').value || '');
+  const setpointVal = document.getElementById('setpointC').value;
+  let url = `/api/log/start?name=${name}&bean_type=${beanType}&roast_level=${roastLevel}`;
+  if (setpointVal !== '') url += `&setpoint_c=${encodeURIComponent(setpointVal)}`;
+  fetch(url, { method: 'POST' }).then(refreshLogs);
+});
+document.getElementById('stopLogBtn').addEventListener('click', () => {
+  fetch('/api/log/stop', { method: 'POST' }).then(refreshLogs);
+});
+
+function refreshLogs() {
+  fetch('/api/log/list').then(r => r.json()).then(files => {
+    const ul = document.getElementById('logs');
+    ul.innerHTML = '';
+    files.forEach(f => {
+      const li = document.createElement('li');
+      const name = f.replace(/^\/logs\//, '');
+      li.innerHTML = `<span>${name}</span><a href="/api/log/download?file=${encodeURIComponent(name)}">download</a>`;
+      ul.appendChild(li);
+    });
+  });
+}
+
+resizeCanvas();
+refreshLogs();
+</script>
+</body>
+</html>
