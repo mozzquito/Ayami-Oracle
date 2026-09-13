@@ -1,3 +1,3 @@
 STATE: completed
-TASK: ปิด session - ไม่มีงานค้าง
-SINCE: 14:45
+TASK: session closed by มอส — no pending work
+SINCE: 14:49
