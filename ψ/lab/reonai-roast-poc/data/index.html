@@ -33,6 +33,14 @@
   ul#logs { list-style: none; padding: 0; margin: 4px 0 0; }
   ul#logs li { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #222; }
   a { color: #5cc8ff; }
+  #chatLog { height: 260px; overflow-y: auto; background: #111113; border: 1px solid #2a2a2e; border-radius: 8px; padding: 10px; margin-bottom: 8px; }
+  .chat-msg { margin-bottom: 10px; white-space: pre-wrap; }
+  .chat-msg .who { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: .03em; margin-bottom: 2px; }
+  .chat-msg.user .who { color: #5cc8ff; }
+  .chat-msg.assistant .who { color: #ff9f43; }
+  .chat-msg.error .who { color: #ff5c5c; }
+  #chatInput { flex: 1; min-width: 200px; }
+  input[type=password] { background: #17171a; border: 1px solid #2a2a2e; color: #eee; border-radius: 6px; padding: 6px 10px; }
 </style>
 </head>
 <body>
@@ -92,6 +100,24 @@
   <ul id="logs"></ul>
 </div>
 
+<div class="panel">
+  <h2 style="font-size:14px;margin:0 0 8px;">Chat with AI</h2>
+  <p class="hint">Calls the Claude API directly from this browser tab — the ESP32 never sees your API key.
+  The key lives only in this browser's session (cleared when you close the tab) unless you tick "remember on
+  this device". Each message includes the current DT/HT/RoR/mode snapshot so you can ask things like
+  "อุณหภูมิตอนนี้เป็นไง" or "ควรเพิ่ม duty ไหม". This is a POC convenience, not the production chat/API-gateway
+  architecture (that's deferred — see README).</p>
+  <div class="row">
+    <input type="password" id="apiKey" placeholder="Claude API key (sk-ant-...)">
+    <label class="hint"><input type="checkbox" id="rememberKey"> remember on this device</label>
+  </div>
+  <div id="chatLog"></div>
+  <div class="row">
+    <input type="text" id="chatInput" placeholder="ask about the current roast…">
+    <button id="chatSendBtn" class="primary">Send</button>
+  </div>
+</div>
+
 <script>
 const dtVal = document.getElementById('dtVal');
 const htVal = document.getElementById('htVal');
@@ -143,10 +169,13 @@ function pushHist(arr, v) {
   if (arr.length > HISTORY_MAX) arr.shift();
 }
 
+let lastState = {};
+
 const es = new EventSource('/api/events');
 es.addEventListener('state', (e) => {
   conn.textContent = 'live';
   const d = JSON.parse(e.data);
+  lastState = d;
   dtVal.textContent = d.dt == null ? '--' : d.dt.toFixed(1) + '°C';
   htVal.textContent = d.ht == null ? '--' : d.ht.toFixed(1) + '°C';
   rorVal.textContent = d.ror == null ? '--' : d.ror.toFixed(1);
@@ -205,6 +234,114 @@ function refreshLogs() {
 
 resizeCanvas();
 refreshLogs();
+
+// ---- Chat with AI (Claude API, called directly from the browser) --------
+// Deliberately client-side only, per the POC scope: the ESP32 serves this
+// page but never sees the API key or touches api.anthropic.com. The key is
+// kept in sessionStorage by default (cleared when the tab closes); the
+// "remember on this device" box opts into localStorage instead, which
+// survives closing the tab on THIS browser/device only.
+const apiKeyInput = document.getElementById('apiKey');
+const rememberKeyBox = document.getElementById('rememberKey');
+const chatLog = document.getElementById('chatLog');
+const chatInput = document.getElementById('chatInput');
+let chatHistory = []; // [{role, content}]
+
+(function restoreKey() {
+  const saved = localStorage.getItem('reonai_claude_key');
+  if (saved) { apiKeyInput.value = saved; rememberKeyBox.checked = true; }
+})();
+
+rememberKeyBox.addEventListener('change', () => {
+  if (rememberKeyBox.checked && apiKeyInput.value) {
+    localStorage.setItem('reonai_claude_key', apiKeyInput.value);
+  } else {
+    localStorage.removeItem('reonai_claude_key');
+  }
+});
+
+function appendChatMsg(role, text) {
+  const div = document.createElement('div');
+  div.className = 'chat-msg ' + role;
+  const who = document.createElement('div');
+  who.className = 'who';
+  who.textContent = role === 'user' ? 'you' : role === 'assistant' ? 'ai' : 'error';
+  const body = document.createElement('div');
+  body.textContent = text;
+  div.appendChild(who); div.appendChild(body);
+  chatLog.appendChild(div);
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+function stateSnapshotText() {
+  const d = lastState;
+  const modeName = d.mode === 1 ? 'Manual duty' : 'Monitor (SSR off)';
+  return `Current roast state: DT=${d.dt ?? 'unknown'}°C HT=${d.ht ?? 'unknown'}°C `
+    + `RoR=${d.ror ?? 'unknown'}°C/min mode=${modeName} duty=${d.duty ?? 0}% `
+    + `fault=${d.fault ? d.faultReason : 'none'} bean=${d.beanType || 'unset'} `
+    + `roastLevel=${d.roastLevel || 'unset'} setpoint=${d.setpointC ?? 'unset'}°C logging=${d.logging}`;
+}
+
+async function sendChat() {
+  const key = apiKeyInput.value.trim();
+  const text = chatInput.value.trim();
+  if (!text) return;
+  if (!key) { appendChatMsg('error', 'Enter your Claude API key above first.'); return; }
+  if (rememberKeyBox.checked) localStorage.setItem('reonai_claude_key', key);
+  else sessionStorage.setItem('reonai_claude_key', key);
+
+  appendChatMsg('user', text);
+  chatInput.value = '';
+  chatHistory.push({ role: 'user', content: text });
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-5',
+        max_tokens: 500,
+        system: 'You are an assistant helping monitor a home coffee-roasting POC (ESP32 + '
+          + 'dual thermocouple, DT=bean temp, HT=heater temp, RoR=rate of rise in °C/min). '
+          + 'This POC does NOT do closed-loop control — any heat changes are made by the '
+          + 'person roasting, not automatically. Answer briefly and concretely using the '
+          + 'live snapshot given. If asked to change the heater, remind the person that '
+          + 'only they can do that (Manual duty slider), you cannot act on it. '
+          + stateSnapshotText(),
+        messages: chatHistory,
+      }),
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      appendChatMsg('error', `API error ${res.status}: ${errText.slice(0, 300)}`);
+      chatHistory.pop();
+      return;
+    }
+    const data = await res.json();
+    const reply = (data.content || []).map(b => b.text || '').join('');
+    chatHistory.push({ role: 'assistant', content: reply });
+    appendChatMsg('assistant', reply || '(empty reply)');
+  } catch (err) {
+    appendChatMsg('error', 'Request failed: ' + err.message
+      + ' (if this is a CORS error, the Anthropic API may have changed its direct-browser-access policy)');
+    chatHistory.pop();
+  }
+}
+
+document.getElementById('chatSendBtn').addEventListener('click', sendChat);
+chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChat(); });
+
+(function restoreSessionKey() {
+  if (!apiKeyInput.value) {
+    const s = sessionStorage.getItem('reonai_claude_key');
+    if (s) apiKeyInput.value = s;
+  }
+})();
 </script>
 </body>
 </html>
