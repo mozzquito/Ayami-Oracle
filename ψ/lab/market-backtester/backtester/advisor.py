@@ -80,6 +80,17 @@ class AdviseResult(NamedTuple):
     # calling a second, redundant indicator API.
 
 
+# yfinance occasionally keys a crypto's historical data under a different symbol than the
+# one it actually trades under on an exchange (e.g. Polygon's token migrated MATIC→POL, but
+# yfinance's feed still only has data under the pre-rebrand "POL28321" CoinMarketCap-style
+# ticker — added 2026-09-16 when POL joined the watchlist, see cloud_run.py). This maps the
+# yfinance symbol back to the real exchange symbol for the trade-page link only — never for
+# state file naming or SYMBOLS list keys, which are unaffected either way.
+_BINANCE_SYMBOL_OVERRIDE = {
+    "POL28321": "POL",
+}
+
+
 # Binance's web trade-page URL for a given pair is a stable, documented part of their site
 # routing (not a special API) — unlike an actual pre-filled-order deep link, which neither
 # Binance nor MT4/MT5 (Exness) expose publicly as of 2026-08-17 (checked before building
@@ -87,7 +98,8 @@ class AdviseResult(NamedTuple):
 # on the broker's own app, which is the point — this tool never touches a broker API key.
 def _quick_action_link(symbol: str, market: str) -> str | None:
     if market == "crypto":
-        return f"https://www.binance.com/en/trade/{symbol}_USDT?type=spot"
+        binance_symbol = _BINANCE_SYMBOL_OVERRIDE.get(symbol, symbol)
+        return f"https://www.binance.com/en/trade/{binance_symbol}_USDT?type=spot"
     return None
 
 

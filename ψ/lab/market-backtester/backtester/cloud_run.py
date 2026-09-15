@@ -99,27 +99,34 @@ SYMBOLS = [
     # their last-checked state forever, since nothing in SYMBOLS references them anymore
     # to ever re-check or close them. Harmless (paper capital only), just stale data.
     #
-    # Added 2026-09-01 (user's explicit pick, after reviewing real backtest numbers for
-    # 10 candidate coins). All three showed the strategy generating real gains while the
-    # underlying coin itself fell over the same window (2023-2026) — a stronger signal of
-    # genuine edge than riding a bull market the way SOL/TRX's numbers partly reflect.
-    # Real risk disclosed and accepted: drawdowns here (-50% to -58%) are the highest of
-    # anything in this watchlist except NEAR.
+    # DOGE and AVAX (added 2026-09-01) removed 2026-09-16 after converging evidence they
+    # never had a real edge — their +55.6%/+78.4% headline backtest numbers were survivorship-
+    # biased maxima from a 10-candidate comparison (zcode's diagnosis, 2026-09-16), and TWO
+    # independent checks confirmed it: (1) both were the worst live paper performers of the
+    # whole watchlist (DOGE -14.1%, AVAX -4.8% equity since inception), and (2) a walk-forward
+    # out-of-sample test (train ≤2026-06-30, test 2026-07-01→09-16, same production params)
+    # showed both went NEGATIVE with a 0% win rate out-of-sample, despite their inflated
+    # training-window numbers. Their `.state/` files are now orphaned (same as the forex
+    # removal earlier this session) — harmless, paper capital only.
+    #
+    # POL (added 2026-09-16, replacing one of the two freed slots): the ONE candidate out of
+    # 9 rejected-on-2026-09-01 coins (ADA, XRP, LINK, DOT, LTC, MATIC/POL, SUI) plus a re-check
+    # of ETH/BTC/etc. that showed CONVERGENT evidence — positive on both the full 2023-2026
+    # backtest (+18.4%, Sharpe 0.34) AND the same held-out out-of-sample window that sank DOGE/
+    # AVAX (+20.52%, Sharpe 2.83). Every other candidate checked (LTC, LINK, MATIC's own
+    # rsrs_trend variant) looked good in the short OOS window but was negative over the full
+    # multi-year history — the same short-window-looks-good trap already diagnosed, so they
+    # were NOT added despite the tempting recent numbers. No second replacement was added for
+    # the other freed slot — no other candidate cleared this bar, and forcing one in just to
+    # keep the count at 9 would repeat the exact mistake being corrected here.
+    #
+    # Ticker quirk: yfinance still keys Polygon's token under the pre-rebrand CoinMarketCap-
+    # style symbol "POL28321" (plain "POL-USD" and "MATIC-USD" are both dead/delisted on
+    # yfinance) — this is intentional, not a typo. See advisor.py's _BINANCE_SYMBOL_OVERRIDE
+    # for why the Discord quick-trade link still points to the real "POL" pair on Binance.
     {
-        "symbol": "DOGE",
+        "symbol": "POL28321",
         "market": "crypto",
-        # Backtested +55.6% vs buy-hold +17.4% (2023-2026) — book_rsi_ma_mtf beat holding.
-        "strategy_name": "book_rsi_ma_mtf",
-        "params": {},
-        "capital": 10,
-        "sizing_mode": "fixed",
-        "stop_pct": 0.05,
-        "target_pct": 0.10,
-    },
-    {
-        "symbol": "AVAX",
-        "market": "crypto",
-        # Backtested +78.4% vs buy-hold -33.3% — book_rsi_ma_mtf profited while the coin lost.
         "strategy_name": "book_rsi_ma_mtf",
         "params": {},
         "capital": 10,
