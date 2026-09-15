@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import NamedTuple
 
@@ -95,24 +96,29 @@ def _quick_action_link(symbol: str, market: str) -> str | None:
 _STALE_PRICE_THRESHOLD_PCT = 1.5
 
 
-def _live_price_deviation_warning(symbol: str, market: str, reference_price: float) -> str | None:
-    """Best-effort staleness check: by the time a signal is read and acted on, the real
-    price may already have moved (added 2026-08-17 after a "missing the trade window"
-    report — yfinance's fast_info is a lightweight near-real-time quote, distinct from the
-    daily-bar OHLCV history advise() otherwise uses). Never blocks or delays the signal
-    itself — a fetch failure here just means no staleness line gets appended, not that the
-    entry recommendation is withheld.
+def _fetch_live_price(symbol: str, market: str) -> float | None:
+    """Best-effort current quote via yfinance's lightweight fast_info — distinct from the
+    daily-bar OHLCV history advise() otherwise uses (added 2026-08-17 after a "missing the
+    trade window" report). Returns None on any fetch failure so callers can fall back
+    rather than crash; logged (not silently swallowed) since a 100%-failure-rate in
+    production with nothing ever printed would be indistinguishable from it working
+    correctly and just never being needed (found that gap 2026-08-21).
     """
     try:
         ticker = normalize_ticker(symbol, market)
-        live_price = float(yf.Ticker(ticker).fast_info.last_price)
+        return float(yf.Ticker(ticker).fast_info.last_price)
     except Exception as e:
-        # Logged (not just silently swallowed) — this check failing 100% of the time in
-        # production with nothing ever printed would be indistinguishable from it working
-        # correctly and just never crossing the threshold. Found that gap 2026-08-21 while
-        # investigating a "missing the trade window" report and being unable to tell from
-        # logs alone whether staleness checks were even running.
-        print(f"advisor: live-price staleness check failed for {symbol} ({market}): {e}", file=sys.stderr)
+        print(f"advisor: live-price fetch failed for {symbol} ({market}): {e}", file=sys.stderr)
+        return None
+
+
+def _live_price_deviation_warning(symbol: str, market: str, reference_price: float, live_price: float | None) -> str | None:
+    """Best-effort staleness check: by the time a signal is read and acted on, the real
+    price may already have moved. Never blocks or delays the signal itself — a missing
+    live_price here just means no staleness line gets appended, not that the entry
+    recommendation is withheld.
+    """
+    if live_price is None:
         return None
     print(f"advisor: live-price check for {symbol} — live={live_price:.10f} reference={reference_price:.10f}", file=sys.stderr)
     deviation_pct = (live_price / reference_price - 1) * 100
@@ -195,6 +201,19 @@ def advise(
     start = (pd.Timestamp.today() - pd.Timedelta(days=lookback_days)).strftime("%Y-%m-%d")
     df = fetch_ohlcv(symbol, market, start, None)
 
+    # Only ever decide entries/exits-by-signal on a fully-closed daily bar — matches the
+    # backtest engine's data contract exactly. Without this, calling advise() hourly (as
+    # cloud_run.py does) means the "latest" bar is often still forming intraday, and gets
+    # treated as a completed close anyway — causing phantom whipsaw entries/exits the
+    # backtest never modeled (confirmed 2026-09-16: replaying the live Aug11-Sep16 window
+    # through this same backtest engine on completed bars alone beat the live hourly
+    # system on all 9 watchlist symbols, by margins up to 24 points — see README "Known
+    # bug"). This is a conservative, timezone-agnostic check (today's UTC date, not each
+    # market's actual session close) — worst case it treats an already-closed bar as still
+    # forming for a few hours on non-24/7 markets, never the other way around.
+    if df.index[-1].date() >= datetime.now(timezone.utc).date():
+        df = df.iloc[:-1]
+
     strategy_fn = STRATEGIES[strategy_name]
     signal = strategy_fn(df, **params)
 
@@ -204,6 +223,7 @@ def advise(
     latest_high = float(latest_row["High"])
     as_of = df.index[-1].strftime("%Y-%m-%d")
     signal_now = int(signal.iloc[-1])
+    live_price = _fetch_live_price(symbol, market)
 
     lines = [
         f"{symbol} ({market}) — {strategy_name}  |  ข้อมูลล่าสุด ณ {as_of} (Close={latest_close:.10f})",
@@ -225,11 +245,19 @@ def advise(
         # (the backtest engine has the same protection: a stop can't fire on the entry bar).
         entered_today = state["entry_date"] == as_of
 
-        # Same precedence as the backtest engine: a resting stop/target can fire off this
-        # bar's intrabar range even before the strategy's own signal flips to flat.
-        if not entered_today and stop_level is not None and latest_low <= stop_level:
+        # Stop/target are monitored against the CURRENT live price, not the daily bar's
+        # High/Low — the bar used for signal purposes is now always yesterday-or-earlier
+        # (see the forming-bar fix above), so using its range here would delay a real
+        # stop/target hit by up to a full day, which defeats the point of a stop-loss.
+        # Falls back to the completed bar's High/Low only if the live fetch fails, so a
+        # temporary network hiccup doesn't silently disable risk monitoring for an hour.
+        check_low, check_high = (live_price, live_price) if live_price is not None else (latest_low, latest_high)
+
+        # Same precedence as the backtest engine: a resting stop/target can fire even
+        # before the strategy's own signal flips to flat.
+        if not entered_today and stop_level is not None and check_low <= stop_level:
             exit_reason, exit_price = "stop", stop_level
-        elif not entered_today and target_level is not None and latest_high >= target_level:
+        elif not entered_today and target_level is not None and check_high >= target_level:
             exit_reason, exit_price = "target", target_level
         elif signal_now == 0:
             exit_reason, exit_price = "signal", latest_close * (1 - slippage_pct)
@@ -283,13 +311,14 @@ def advise(
             lines.append("    ⚡ ถ้าขายไม้นี้จริงแล้ว ตอบ ✅ ใต้ข้อความนี้ — ถ้ายังไม่ได้ขาย ตอบ ❌")
             lines.append(f"[trade-exit:{symbol}:{market}:price={exit_price:.10f}:reason={exit_reason}:pnl={pnl:+.2f}]")
         else:
-            unrealized = state["shares"] * latest_close - state["cost_basis"]
+            display_price = live_price if live_price is not None else latest_close
+            unrealized = state["shares"] * display_price - state["cost_basis"]
             lines.append(f"สถานะ: ถือ LONG อยู่ (เข้าเมื่อ {state['entry_date']} ที่ {state['entry_price']:.10f})")
             lines.append(f"กำไร/ขาดทุนที่ยังไม่รับรู้: {unrealized:+,.2f}")
             if stop_level:
-                lines.append(f"Stop-loss: {stop_level:.10f}  (ห่างจากราคาปัจจุบัน {(latest_close/stop_level-1)*100:+.2f}%)")
+                lines.append(f"Stop-loss: {stop_level:.10f}  (ห่างจากราคาปัจจุบัน {(display_price/stop_level-1)*100:+.2f}%)")
             if target_level:
-                lines.append(f"Take-profit: {target_level:.10f}  (ห่างจากราคาปัจจุบัน {(latest_close/target_level-1)*100:+.2f}%)")
+                lines.append(f"Take-profit: {target_level:.10f}  (ห่างจากราคาปัจจุบัน {(display_price/target_level-1)*100:+.2f}%)")
             lines.append(">>> คำแนะนำ: ถือต่อ (HOLD)")
 
     if not state["in_position"] and just_exited:
@@ -333,7 +362,7 @@ def advise(
                     lines.append(f"    ตั้ง stop-loss ที่ {stop_level:.10f}")
                 if target_level:
                     lines.append(f"    ตั้ง take-profit ที่ {target_level:.10f}")
-                staleness_warning = _live_price_deviation_warning(symbol, market, fill_price)
+                staleness_warning = _live_price_deviation_warning(symbol, market, fill_price, live_price)
                 if staleness_warning:
                     lines.append(staleness_warning)
                 quick_link = _quick_action_link(symbol, market)
@@ -352,7 +381,8 @@ def advise(
             lines.append(">>> คำแนะนำ: ยังไม่เข้า รอสัญญาณ (WAIT)")
 
     save_state(path, state)
+    valuation_price = live_price if live_price is not None else latest_close
     lines.append("-" * 60)
-    lines.append(f"เงินทุนเริ่มต้น {state['initial_capital']:,.2f} | เงินสด+มูลค่าถือครองตอนนี้ {state['cash'] + state['shares']*latest_close:,.2f}")
+    lines.append(f"เงินทุนเริ่มต้น {state['initial_capital']:,.2f} | เงินสด+มูลค่าถือครองตอนนี้ {state['cash'] + state['shares']*valuation_price:,.2f}")
     lines.append(f"[state file: {path}]")
     return AdviseResult(report="\n".join(lines), event=event, is_entry=is_entry, is_exit=is_exit, signal_now=signal_now)
