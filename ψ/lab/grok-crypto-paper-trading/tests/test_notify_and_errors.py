@@ -129,6 +129,8 @@ def test_send_trade_alert_formats_entry(monkeypatch):
         assert "BTCUSDT" in content
         assert "BTC_USDT" in content  # Binance link uses base_USDT, not the raw pair
         assert "rsi_cross_up_trend" in content
+        assert "[grok-trade-signal:BTCUSDT:book_rsi_ma_mtf:price=50000.1234000000:qty=0.0002000000]" in content
+        assert "✅" in content and "❌" in content
 
 
 def test_send_trade_alert_formats_exit(monkeypatch):
@@ -152,6 +154,11 @@ def test_send_trade_alert_formats_exit(monkeypatch):
         assert "SHIBUSDT" in content
         assert "SHIB_USDT" in content
         assert "+0.51" in content or "0.5100" in content
+        # Regression guard: a tiny price like SHIB's must never print in scientific
+        # notation (e.g. "1.23e-05") — that would silently break the marker's own regex,
+        # the same class of bug already caught once in the sibling project's advisor.py.
+        assert "e-0" not in content.lower()
+        assert "[grok-trade-exit:SHIBUSDT:rsrs_trend:price=0.0000123000:reason=take_profit:pnl=+0.5100]" in content
 
 
 def test_main_skips_alert_for_blocked_and_noop_trades(monkeypatch, tmp_path):

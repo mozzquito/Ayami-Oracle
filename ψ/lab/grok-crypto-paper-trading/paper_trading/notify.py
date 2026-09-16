@@ -1,15 +1,19 @@
 """Discord alerting for the Grok Bot paper-trading experiment — reuses the sibling
 market-backtester project's bot/channel (DISCORD_BOT_TOKEN / REPORT_CHANNEL_ID env vars)
 rather than provisioning new credentials. Two kinds of message:
-  - error alerts (added first, 2026-09-16): a genuine failure — all symbols failed to
-    fetch, an unhandled exception, or a partial per-symbol fetch failure — so a silent
-    failure here doesn't go unnoticed for days, the same reasoning as market-backtester's
-    heartbeat watchdog.
+  - error alerts (added 2026-09-16): a genuine failure — all symbols failed to fetch, an
+    unhandled exception, or a partial per-symbol fetch failure — so a silent failure here
+    doesn't go unnoticed for days, the same reasoning as market-backtester's heartbeat
+    watchdog.
   - trade-signal alerts (added 2026-09-17, per มอส's explicit ask): every real entry/exit
-    fill, informational only — this experiment has no interactive quick-confirm/reaction
-    flow like market-backtester's own Discord bot (that machinery is scoped to that
-    project's own trade log and real-trade-note bridge); if มอส wants this experiment's
-    alerts to carry the same ✅/❌ confirm-and-record flow, that's a separate follow-up.
+    fill embeds a [grok-trade-signal:...]/[grok-trade-exit:...] marker — a distinct prefix
+    from market-backtester's own [trade-signal:...]/[trade-exit:...] markers so
+    discord-bot/bot.mjs's regexes (extended 2026-09-17) can tell the two experiments'
+    messages apart in the same channel and log a ✅/❌ confirm the same way, into the same
+    moss-real-trades.md real-money journal (tagged by source). Prices/qty are always
+    fixed-decimal (.10f), never %g's scientific notation — a small-price coin like SHIB
+    would otherwise print as "5.1e-06" and break the marker's own regex, the same class of
+    bug already caught once in the sibling project's advisor.py.
 """
 
 from __future__ import annotations
@@ -63,21 +67,31 @@ def _binance_link(symbol: str) -> str:
 def send_trade_alert(trade: dict[str, Any]) -> bool:
     """trade is one row from engine.run_daily()'s result['trades'] (see
     portfolio.TradeRecord.to_row()) — call only for a real fill (side == 'buy' with
-    qty > 0, or side == 'sell'), not for a blocked/already_open/invalid_price no-op."""
+    qty > 0, or side == 'sell'), not for a blocked/already_open/invalid_price no-op.
+
+    Embeds a [grok-trade-signal:...]/[grok-trade-exit:...] marker so discord-bot/bot.mjs
+    can auto-react ✅/❌ and log a confirm/skip the same way market-backtester's own
+    signals do. Always fixed-decimal (.10f) — never %g — so the marker's own regex can't
+    be broken by a coin whose price prints in scientific notation.
+    """
     symbol = trade["symbol"]
     link = _binance_link(symbol)
     if trade["side"] == "buy":
         content = (
             f"🔬 **Grok paper-trading experiment — ENTER**\n"
             f"```\n{symbol} ({trade['strategy']}) — reason: {trade['reason']}\n"
-            f"price: {trade['price']:.10g}  qty: {trade['qty']:.8g}  bar_date: {trade['bar_date']}\n"
-            f"```\n🔗 {link}"
+            f"price: {trade['price']:.10f}  qty: {trade['qty']:.10f}  bar_date: {trade['bar_date']}\n"
+            f"```\n🔗 {link}\n"
+            f"⚡ ถ้าเข้าไม้นี้จริง ตอบ ✅ ใต้ข้อความนี้ — ถ้าข้าม ตอบ ❌\n"
+            f"[grok-trade-signal:{symbol}:{trade['strategy']}:price={trade['price']:.10f}:qty={trade['qty']:.10f}]"
         )
     else:
         content = (
             f"🔬 **Grok paper-trading experiment — EXIT**\n"
             f"```\n{symbol} ({trade['strategy']}) — reason: {trade['reason']}\n"
-            f"price: {trade['price']:.10g}  pnl: {trade['pnl_usd']:+.4f}  bar_date: {trade['bar_date']}\n"
-            f"```\n🔗 {link}"
+            f"price: {trade['price']:.10f}  pnl: {trade['pnl_usd']:+.4f}  bar_date: {trade['bar_date']}\n"
+            f"```\n🔗 {link}\n"
+            f"⚡ ถ้าขายไม้นี้จริงแล้ว ตอบ ✅ ใต้ข้อความนี้ — ถ้ายังไม่ได้ขาย ตอบ ❌\n"
+            f"[grok-trade-exit:{symbol}:{trade['strategy']}:price={trade['price']:.10f}:reason={trade['reason']}:pnl={trade['pnl_usd']:+.4f}]"
         )
     return _post(content)
