@@ -93,6 +93,12 @@ const TRADE_SIGNAL_RE = /\[trade-signal:([A-Z]+):(\w+):entry=([\d.]+):stop=([\d.
 // delivered at all, treated as "informational only" — wrong, missing a sell signal is just as
 // costly as missing a buy one. See backtester/advisor.py's [trade-exit:...] line).
 const TRADE_EXIT_RE = /\[trade-exit:([A-Z]+):(\w+):price=([\d.]+):reason=(\w+):pnl=([+-][\d.]+)\]/
+// Same quick-confirm mechanism, for the independent Grok Bot paper-trading experiment
+// (ψ/lab/grok-crypto-paper-trading, added 2026-09-16/17) — a distinct "grok-" prefix so a
+// reaction on one experiment's message is never mistaken for the other's, even though both
+// post to the same REPORT_CHANNEL_ID. See that project's paper_trading/notify.py.
+const GROK_TRADE_SIGNAL_RE = /\[grok-trade-signal:([A-Z]+):(\w+):price=([\d.]+):qty=([\d.]+)\]/
+const GROK_TRADE_EXIT_RE = /\[grok-trade-exit:([A-Z]+):(\w+):price=([\d.]+):reason=(\w+):pnl=([+-][\d.]+)\]/
 // Strips invisible Unicode that Thai mobile IMEs sometimes inject (ZWJ, variation
 // selectors, zero-width spaces, etc.). Applied ONCE before all trigger checks so
 // no invisible prefix can dodge the ^ anchor.
@@ -217,6 +223,40 @@ async function appendReactionTradeExit(signal, confirmed) {
   const reasonLabel = { stop: 'stop-loss', target: 'take-profit', signal: 'สัญญาณออก' }[signal.reason] || signal.reason
   const detail = `${signal.symbol} (${signal.market}) exit=${signal.price} (${reasonLabel}) pnl=${signal.pnl}`
   const status = confirmed ? '💰 ขายจริงแล้ว (ยืนยันผ่าน reaction ✅)' : '⏭️ ยังไม่ได้ขาย (reaction ❌)'
+  const line = `- **${timeStr}** ${status}: ${detail}`
+  await fsp.appendFile(TRADE_PATH, line + '\n')
+  if (confirmed) await pushTradeToWebhook(detail, signal.symbol)
+}
+
+// Same quick-confirm flow as appendReactionTradeEntry/Exit, for the independent Grok Bot
+// paper-trading experiment (added 2026-09-17) — logs into the SAME moss-real-trades.md
+// real-money journal (it's still one real trading history regardless of which paper system
+// suggested the trade), just tagged "(Grok experiment)" so the two sources stay
+// distinguishable when reviewing the file later.
+async function appendGrokReactionTradeEntry(signal, confirmed) {
+  const now = new Date()
+  const timeStr = now.toLocaleTimeString('th-TH', {
+    timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hour12: false,
+  })
+  const detail = `${signal.symbol} (${signal.strategy}) entry=${signal.price} qty=${signal.qty}`
+  const status = confirmed
+    ? '💰 เทรดจริง (ยืนยันผ่าน reaction ✅, Grok experiment)'
+    : '⏭️ ข้ามสัญญาณ (reaction ❌, Grok experiment)'
+  const line = `- **${timeStr}** ${status}: ${detail}`
+  await fsp.appendFile(TRADE_PATH, line + '\n')
+  if (confirmed) await pushTradeToWebhook(detail, signal.symbol)
+}
+
+async function appendGrokReactionTradeExit(signal, confirmed) {
+  const now = new Date()
+  const timeStr = now.toLocaleTimeString('th-TH', {
+    timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hour12: false,
+  })
+  const reasonLabel = { stop_loss: 'stop-loss', take_profit: 'take-profit', rsi_reversal: 'สัญญาณออก (RSI)', rsrs_reversal: 'สัญญาณออก (RSRS)' }[signal.reason] || signal.reason
+  const detail = `${signal.symbol} (${signal.strategy}) exit=${signal.price} (${reasonLabel}) pnl=${signal.pnl}`
+  const status = confirmed
+    ? '💰 ขายจริงแล้ว (ยืนยันผ่าน reaction ✅, Grok experiment)'
+    : '⏭️ ยังไม่ได้ขาย (reaction ❌, Grok experiment)'
   const line = `- **${timeStr}** ${status}: ${detail}`
   await fsp.appendFile(TRADE_PATH, line + '\n')
   if (confirmed) await pushTradeToWebhook(detail, signal.symbol)
@@ -565,7 +605,8 @@ client.on('messageCreate', async (msg) => {
       msg.author.id === client.user.id &&
       reportChannelEnabled &&
       msg.channel.id === REPORT_CHANNEL_ID &&
-      (TRADE_SIGNAL_RE.test(msg.content) || TRADE_EXIT_RE.test(msg.content))
+      (TRADE_SIGNAL_RE.test(msg.content) || TRADE_EXIT_RE.test(msg.content) ||
+        GROK_TRADE_SIGNAL_RE.test(msg.content) || GROK_TRADE_EXIT_RE.test(msg.content))
     ) {
       try {
         await msg.react('✅')
@@ -714,7 +755,9 @@ client.on('messageReactionAdd', async (reaction, user) => {
 
   const entryMatch = TRADE_SIGNAL_RE.exec(msg.content)
   const exitMatch = !entryMatch ? TRADE_EXIT_RE.exec(msg.content) : null
-  if (!entryMatch && !exitMatch) return // not a trade-signal/exit message — ignore (diary/summary/etc. reactions)
+  const grokEntryMatch = !entryMatch && !exitMatch ? GROK_TRADE_SIGNAL_RE.exec(msg.content) : null
+  const grokExitMatch = !entryMatch && !exitMatch && !grokEntryMatch ? GROK_TRADE_EXIT_RE.exec(msg.content) : null
+  if (!entryMatch && !exitMatch && !grokEntryMatch && !grokExitMatch) return // not a trade-signal/exit message — ignore (diary/summary/etc. reactions)
 
   const dedupeKey = `${msg.id}:${reaction.emoji.name}`
   if (processedSignals.has(dedupeKey)) return
@@ -730,6 +773,22 @@ client.on('messageReactionAdd', async (reaction, user) => {
         confirmed
           ? `<@${user.id}> ✅ บันทึกว่าเข้าไม้ ${symbol} จริงแล้วค่ะ`
           : `<@${user.id}> ⏭️ บันทึกว่าข้ามสัญญาณ ${symbol} แล้วค่ะ`,
+      )
+    } else if (grokEntryMatch) {
+      const [, symbol, strategy, price, qty] = grokEntryMatch
+      await appendGrokReactionTradeEntry({ symbol, strategy, price, qty }, confirmed)
+      await msg.channel.send(
+        confirmed
+          ? `<@${user.id}> ✅ บันทึกว่าเข้าไม้ ${symbol} จริงแล้วค่ะ (Grok experiment)`
+          : `<@${user.id}> ⏭️ บันทึกว่าข้ามสัญญาณ ${symbol} แล้วค่ะ (Grok experiment)`,
+      )
+    } else if (grokExitMatch) {
+      const [, symbol, strategy, price, reason, pnl] = grokExitMatch
+      await appendGrokReactionTradeExit({ symbol, strategy, price, reason, pnl }, confirmed)
+      await msg.channel.send(
+        confirmed
+          ? `<@${user.id}> ✅ บันทึกว่าขาย ${symbol} จริงแล้วค่ะ (Grok experiment)`
+          : `<@${user.id}> ⏭️ บันทึกว่ายังไม่ได้ขาย ${symbol} แล้วค่ะ (Grok experiment)`,
       )
     } else {
       const [, symbol, market, price, reason, pnl] = exitMatch
