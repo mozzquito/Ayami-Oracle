@@ -44,18 +44,37 @@ Entries and exits are paper-filled at that closed bar's **close**. Stop-loss / t
 
 ## Schedule tip
 
-Run once per day after the UTC daily candle closes, e.g. **07:00–08:00 Asia/Bangkok** (= **00:00–01:00 UTC**). That gives Binance time to finalize the prior UTC day.
+The underlying signal is still daily-bar (only one new closed bar per UTC day), but the
+job is safe to run **hourly** — `run_daily()`'s idempotency check means every run before a
+new bar closes just logs "Idempotent skip" and exits 0, it never re-evaluates or re-trades
+the same closed bar twice. Deployed at `0 * * * *` (hourly, matching the sibling
+market-backtester cron) rather than once daily, so a single missed/failed run doesn't mean
+waiting a full day for the next attempt.
 
 ### Railway cron suggestion
 
 ```
-# Cron (UTC): shortly after midnight UTC
-0 0 * * *
+# Cron (UTC): hourly
+0 * * * *
 # Command
 DATA_DIR=/data python main.py
 ```
 
-No secrets / API keys required in the environment.
+No secrets / API keys required for the trading logic itself. Optional: set
+`DISCORD_BOT_TOKEN` + `REPORT_CHANNEL_ID` (same values as the sibling market-backtester
+service) to get an error alert — see below — instead of a purely silent failure.
+
+## Error alerting
+
+This experiment reports success via `run.log`/`state.json` only, not chat — but a genuine
+failure (all symbols failed to fetch, an unhandled exception, or even a partial per-symbol
+fetch failure) posts a one-line Discord alert via `paper_trading/notify.py`, reusing the
+sibling market-backtester project's bot/channel (`DISCORD_BOT_TOKEN` / `REPORT_CHANNEL_ID`
+env vars). This is deliberately error-only, not a trade-signal feed — added 2026-09-16
+after running once with zero alerting of any kind, so a silent failure could otherwise go
+unnoticed indefinitely (the same failure mode market-backtester's own heartbeat watchdog
+exists to catch). Without those two env vars set, alerting no-ops safely (logged to
+stderr) rather than crashing the run.
 
 ## Universe (Binance USDT)
 

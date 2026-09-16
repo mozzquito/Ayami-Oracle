@@ -30,6 +30,7 @@ def run_daily(cfg: Config, storage: Storage | None = None) -> dict[str, Any]:
     bars_by_symbol: dict[str, Any] = {}
     closed_by_symbol: dict[str, Any] = {}
     bar_dates: dict[str, str] = {}
+    warnings: list[str] = []
 
     for symbol in cfg.symbols:
         try:
@@ -44,11 +45,13 @@ def run_daily(cfg: Config, storage: Storage | None = None) -> dict[str, Any]:
             closed_by_symbol[symbol] = closed
             bar_dates[symbol] = bar_date
         except Exception as exc:  # noqa: BLE001
-            storage.log(f"WARN skip {symbol}: {exc}")
+            msg = f"skip {symbol}: {exc}"
+            storage.log(f"WARN {msg}")
+            warnings.append(msg)
 
     if not bar_dates:
         storage.log("ERROR no klines fetched; aborting")
-        return {"ok": False, "reason": "no_data", "trades": []}
+        return {"ok": False, "reason": "no_data", "trades": [], "warnings": warnings}
 
     # Majority / first-symbol closed bar date
     bar_date = bar_dates.get(cfg.symbols[0]) or next(iter(bar_dates.values()))
@@ -69,6 +72,7 @@ def run_daily(cfg: Config, storage: Storage | None = None) -> dict[str, Any]:
             "bar_date": bar_date,
             "trades": [],
             "open_count": len(state.get("positions", [])),
+            "warnings": warnings,
         }
 
     portfolio = Portfolio.from_state(state, cfg.slot_usd, cfg.max_open)
@@ -214,4 +218,5 @@ def run_daily(cfg: Config, storage: Storage | None = None) -> dict[str, Any]:
         "buys": buys,
         "sells": sells,
         "blocked": blocked,
+        "warnings": warnings,
     }
