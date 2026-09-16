@@ -1,12 +1,14 @@
 """Error-alerting: send_error_alert no-ops safely without credentials, engine surfaces
-per-symbol fetch failures as warnings, main.py alerts on both warnings and hard failures."""
+per-symbol fetch failures as warnings, main.py alerts on both warnings and hard failures.
+Trade-alerting: send_trade_alert formats entries/exits correctly, main.py only alerts on
+real fills (not blocked_by_cap/already_open/invalid_price no-ops)."""
 
 from __future__ import annotations
 
 import os
 from unittest.mock import MagicMock, patch
 
-from paper_trading.notify import send_error_alert
+from paper_trading.notify import send_error_alert, send_trade_alert
 
 
 def test_send_error_alert_noop_without_credentials(monkeypatch):
@@ -104,3 +106,83 @@ def test_main_alerts_on_unhandled_exception(monkeypatch, tmp_path):
     assert rc == 1
     assert mock_alert.called
     assert "boom" in mock_alert.call_args.args[0]
+
+
+def test_send_trade_alert_formats_entry(monkeypatch):
+    monkeypatch.setenv("DISCORD_BOT_TOKEN", "fake-token")
+    monkeypatch.setenv("REPORT_CHANNEL_ID", "123456")
+    trade = {
+        "symbol": "BTCUSDT",
+        "strategy": "book_rsi_ma_mtf",
+        "side": "buy",
+        "reason": "rsi_cross_up_trend",
+        "price": 50000.1234,
+        "qty": 0.0002,
+        "pnl_usd": 0.0,
+        "bar_date": "2026-09-16",
+    }
+    mock_resp = MagicMock(status_code=200)
+    with patch("paper_trading.notify.requests.post", return_value=mock_resp) as mock_post:
+        assert send_trade_alert(trade) is True
+        content = mock_post.call_args.kwargs["json"]["content"]
+        assert "ENTER" in content
+        assert "BTCUSDT" in content
+        assert "BTC_USDT" in content  # Binance link uses base_USDT, not the raw pair
+        assert "rsi_cross_up_trend" in content
+
+
+def test_send_trade_alert_formats_exit(monkeypatch):
+    monkeypatch.setenv("DISCORD_BOT_TOKEN", "fake-token")
+    monkeypatch.setenv("REPORT_CHANNEL_ID", "123456")
+    trade = {
+        "symbol": "SHIBUSDT",
+        "strategy": "rsrs_trend",
+        "side": "sell",
+        "reason": "take_profit",
+        "price": 0.0000123,
+        "qty": 500000.0,
+        "pnl_usd": 0.51,
+        "bar_date": "2026-09-16",
+    }
+    mock_resp = MagicMock(status_code=200)
+    with patch("paper_trading.notify.requests.post", return_value=mock_resp) as mock_post:
+        assert send_trade_alert(trade) is True
+        content = mock_post.call_args.kwargs["json"]["content"]
+        assert "EXIT" in content
+        assert "SHIBUSDT" in content
+        assert "SHIB_USDT" in content
+        assert "+0.51" in content or "0.5100" in content
+
+
+def test_main_skips_alert_for_blocked_and_noop_trades(monkeypatch, tmp_path):
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("DISCORD_BOT_TOKEN", "fake-token")
+    monkeypatch.setenv("REPORT_CHANNEL_ID", "123456")
+
+    import main as main_module
+
+    fake_result = {
+        "ok": True,
+        "skipped": False,
+        "bar_date": "2026-09-16",
+        "open_count": 1,
+        "trades": [
+            {"symbol": "BTCUSDT", "strategy": "book_rsi_ma_mtf", "side": "buy",
+             "reason": "blocked_by_cap", "price": 100.0, "qty": 0.0, "pnl_usd": 0.0,
+             "bar_date": "2026-09-16", "note": "ignored"},
+            {"symbol": "ETHUSDT", "strategy": "book_rsi_ma_mtf", "side": "buy",
+             "reason": "already_open", "price": 100.0, "qty": 0.0, "pnl_usd": 0.0,
+             "bar_date": "2026-09-16", "note": "ignored"},
+            {"symbol": "SOLUSDT", "strategy": "book_rsi_ma_mtf", "side": "buy",
+             "reason": "rsi_cross_up_trend", "price": 100.0, "qty": 0.1, "pnl_usd": 0.0,
+             "bar_date": "2026-09-16", "note": "opened"},
+        ],
+    }
+    with patch("main.run_daily", return_value=fake_result), patch(
+        "main.send_trade_alert"
+    ) as mock_alert:
+        rc = main_module.main()
+
+    assert rc == 0
+    assert mock_alert.call_count == 1  # only the real SOLUSDT fill, not the two no-ops
+    assert mock_alert.call_args.args[0]["symbol"] == "SOLUSDT"

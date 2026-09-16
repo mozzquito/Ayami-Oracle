@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from paper_trading.config import load_config
 from paper_trading.engine import run_daily
-from paper_trading.notify import send_error_alert
+from paper_trading.notify import send_error_alert, send_trade_alert
 from paper_trading.storage import Storage
 
 
@@ -52,6 +52,15 @@ def main() -> int:
 
     if result.get("skipped"):
         return 0
+
+    # Only real fills — a blocked_by_cap/already_open/invalid_price row has qty=0 and
+    # isn't a trade that happened, so it must not alert (matches market-backtester's own
+    # rule: a blocked signal is visible in the log, never a chat notification).
+    for trade in result.get("trades") or []:
+        is_real_fill = trade["side"] == "sell" or (trade["side"] == "buy" and trade["qty"] > 0)
+        if is_real_fill:
+            send_trade_alert(trade)
+
     storage.log(
         f"Summary bar_date={result.get('bar_date')} "
         f"trades={len(result.get('trades') or [])} "

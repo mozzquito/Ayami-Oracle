@@ -64,17 +64,26 @@ No secrets / API keys required for the trading logic itself. Optional: set
 `DISCORD_BOT_TOKEN` + `REPORT_CHANNEL_ID` (same values as the sibling market-backtester
 service) to get an error alert — see below — instead of a purely silent failure.
 
-## Error alerting
+## Discord alerting
 
-This experiment reports success via `run.log`/`state.json` only, not chat — but a genuine
-failure (all symbols failed to fetch, an unhandled exception, or even a partial per-symbol
-fetch failure) posts a one-line Discord alert via `paper_trading/notify.py`, reusing the
-sibling market-backtester project's bot/channel (`DISCORD_BOT_TOKEN` / `REPORT_CHANNEL_ID`
-env vars). This is deliberately error-only, not a trade-signal feed — added 2026-09-16
-after running once with zero alerting of any kind, so a silent failure could otherwise go
-unnoticed indefinitely (the same failure mode market-backtester's own heartbeat watchdog
-exists to catch). Without those two env vars set, alerting no-ops safely (logged to
-stderr) rather than crashing the run.
+Reuses the sibling market-backtester project's bot/channel (`DISCORD_BOT_TOKEN` /
+`REPORT_CHANNEL_ID` env vars) rather than provisioning new credentials. Two kinds of
+message, both via `paper_trading/notify.py`:
+
+- **Error alerts** (added 2026-09-16): a genuine failure — all symbols failed to fetch, an
+  unhandled exception, or even a partial per-symbol fetch failure — posts a one-line
+  alert. Added after running once with zero alerting of any kind, so a silent failure
+  could otherwise go unnoticed indefinitely (the same failure mode market-backtester's own
+  heartbeat watchdog exists to catch).
+- **Trade-signal alerts** (added 2026-09-17): every real entry/exit fill posts a message
+  with symbol, strategy, reason, price/qty (or pnl on exit), and a Binance quick-link —
+  informational only, no interactive ✅/❌ confirm-and-record flow like
+  market-backtester's own Discord bot (that machinery is scoped to that project's own
+  trade log and real-trade-note bridge). `blocked_by_cap`/`already_open`/`invalid_price`
+  no-op rows never alert, same rule as market-backtester's own event-only notification.
+
+Without `DISCORD_BOT_TOKEN`/`REPORT_CHANNEL_ID` set, both kinds of alerting no-op safely
+(logged to stderr) rather than crashing the run.
 
 ## Universe (Binance USDT)
 
