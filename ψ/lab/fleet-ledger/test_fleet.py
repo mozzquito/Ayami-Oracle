@@ -377,3 +377,279 @@ def test_bad_lock_wait_env_does_not_break_readers(ledger, monkeypatch, capsys):
     monkeypatch.setenv("FLEET_LOCK_WAIT_S", "abc")
     assert fleet.lock_wait_s() == 5.0
     assert fleet.main(["recent"]) == 0
+
+
+# ---- group field (replaces the task-board idea) ----
+
+def test_group_optional_old_lines_stay_valid_and_filter_works(ledger, capsys):
+    a = add_sent(label="old style, no group")
+    assert cli("log", "sent", "--agent", "zcode", "--label", "in g1", "--group", "g1").returncode == 0
+    assert cli("log", "sent", "--agent", "agy", "--label", "in g2", "--group", "g2").returncode == 0
+    events, bad = fleet.read_events()
+    assert bad == 0 and len(events) == 3 and "group" not in events[0]
+    fleet.main(["recent", "--group", "g1"])
+    out = capsys.readouterr().out
+    assert "in g1" in out and "in g2" not in out and "old style" not in out
+    fleet.main(["pending", "--group", "g2"])
+    out = capsys.readouterr().out
+    assert "in g2" in out and "in g1" not in out
+    assert a[:8] not in out
+
+
+def test_group_rules(ledger):
+    assert cli("log", "sent", "--agent", "zcode", "--label", "x", "--group", "g" * 61).returncode == 2
+    assert cli("log", "sent", "--agent", "zcode", "--label", "x", "--group", " ").returncode == 2
+    bad = {"v": 1, "ev": "sent", "ts": "2026-09-21T03:00:00+07:00", "id": "x", "agent": "agy", "label": "l",
+           "prompt_sha256": None, "prompt_len": None, "access": "unknown"}
+    assert fleet.valid_event({**bad, "group": "ok"}) and fleet.valid_event({**bad, "group": None})
+    assert not fleet.valid_event({**bad, "group": 5})
+
+
+def test_run_records_group(ledger):
+    assert cli("run", "--agent", "agy", "--label", "t", "--group", "round-1", "--", sys.executable, "-c", "pass").returncode == 0
+    assert rows(ledger)[0]["group"] == "round-1"
+
+
+# ---- Grok Bot auto-log hook script ----
+
+HOOK = HERE / "hook_grokbot.py"
+
+
+def hook(payload, raw=None):
+    data = raw if raw is not None else json.dumps(payload)
+    return subprocess.run([sys.executable, str(HOOK)], input=data, capture_output=True, text=True)
+
+
+def send_payload(mid, prompt, tool="mcp__grokbot__grokbot_send"):
+    return {"hook_event_name": "PreToolUse", "tool_name": tool,
+            "tool_input": {"agentId": str(uuid.uuid4()), "messageId": mid, "prompt": prompt}}
+
+
+def test_hook_logs_hash_only_with_fixed_label(ledger):
+    mid, prompt = str(uuid.uuid4()), "line one\nline two 🦌 key sk-HOOKSECRET-1"
+    r = hook(send_payload(mid, prompt))
+    assert r.returncode == 0 and r.stdout == ""
+    ev = rows(ledger)
+    assert len(ev) == 1 and ev[0]["id"] == mid and ev[0]["agent"] == "grokbot" and ev[0]["label"] == "grokbot send (auto-logged)"
+    import hashlib
+    assert ev[0]["prompt_sha256"] == hashlib.sha256(prompt.encode()).hexdigest() and ev[0]["prompt_len"] == len(prompt)
+    assert "HOOKSECRET" not in ledger.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("payload,raw", [
+    ({"tool_name": "mcp__grokbot__grokbot_send", "tool_input": {"messageId": None, "prompt": "x"}}, None),
+    ({"tool_name": "mcp__grokbot__grokbot_send", "tool_input": {"messageId": str(uuid.uuid4()), "prompt": 5}}, None),
+    ({"tool_name": "mcp__grokbot__grokbot_send", "tool_input": "nope"}, None),
+    ({"tool_name": "mcp__grokbot__grokbot_send"}, None),
+    ({"tool_name": "Bash", "tool_input": {"messageId": str(uuid.uuid4()), "prompt": "x"}}, None),   # wrong tool
+    (None, "not json"), (None, ""), (None, "[1,2]"),
+])
+def test_hook_never_blocks_and_logs_nothing_on_bad_input(ledger, payload, raw):
+    r = hook(payload, raw)
+    assert r.returncode == 0 and r.stdout == ""
+    assert not ledger.exists() or rows(ledger) == []
+
+
+def test_hook_duplicate_message_id_is_quiet_success(ledger):
+    mid = str(uuid.uuid4())
+    assert hook(send_payload(mid, "first")).returncode == 0
+    r = hook(send_payload(mid, "second, re-sent to inspect"))
+    assert r.returncode == 0 and r.stdout == "" and "duplicate id" in r.stderr
+    assert len(rows(ledger)) == 1
+
+
+def test_hook_injection_text_has_no_side_effect(ledger, tmp_path):
+    marker = tmp_path / "pwned"
+    evil = f'"; touch {marker}; `touch {marker}` $(touch {marker}) \'; '
+    assert hook(send_payload(str(uuid.uuid4()), evil)).returncode == 0
+    assert not marker.exists() and len(rows(ledger)) == 1
+
+
+def test_hook_concurrent_calls_both_logged(ledger):
+    ps = [subprocess.Popen([sys.executable, str(HOOK)], stdin=subprocess.PIPE, text=True) for _ in range(2)]
+    for p in ps:
+        p.stdin.write(json.dumps(send_payload(str(uuid.uuid4()), "p")))
+        p.stdin.close()
+    assert [p.wait(timeout=30) for p in ps] == [0, 0]
+    assert len(rows(ledger)) == 2
+
+
+def test_hook_survives_locked_ledger(ledger):
+    ledger.parent.mkdir(parents=True)
+    fd = os.open(ledger, os.O_WRONLY | os.O_CREAT, 0o600)
+    fcntl.flock(fd, fcntl.LOCK_EX)
+    try:
+        r = subprocess.run([sys.executable, str(HOOK)], input=json.dumps(send_payload(str(uuid.uuid4()), "p")),
+                           capture_output=True, text=True, env={**os.environ, "FLEET_LOCK_WAIT_S": "0.3"})
+    finally:
+        os.close(fd)
+    assert r.returncode == 0 and "not logged" in r.stderr
+
+
+# ---- fanout ----
+
+FANOUT = HERE / "fanout.py"
+FAKE = "import sys; print('reviewed:', ' '.join(sys.argv[1:2]))"
+
+
+def fanout(tmp_path, *extra, env=None, brief=True):
+    b = tmp_path / "brief.md"
+    b.write_text("public brief", encoding="utf-8")
+    cmd = [sys.executable, str(FANOUT), "--brief", str(b), "--zcode", "scope A", "--agy", "scope B", "--cwd", str(tmp_path),
+           "--out-dir", str(tmp_path / "out"), "--timeout", "30", *extra]
+    return subprocess.run(cmd, capture_output=True, text=True, env={**os.environ, **(env or {})})
+
+
+def fake_env(tmp_path, zcode=FAKE, agy=FAKE):
+    (tmp_path / "z.py").write_text(zcode, encoding="utf-8")
+    (tmp_path / "a.py").write_text(agy, encoding="utf-8")
+    return {"FANOUT_ZCODE_CMD": f"{sys.executable} {tmp_path / 'z.py'}", "FANOUT_AGY_CMD": f"{sys.executable} {tmp_path / 'a.py'}"}
+
+
+def test_fanout_refuses_without_yes_public(ledger, tmp_path):
+    r = fanout(tmp_path, env=fake_env(tmp_path))
+    assert r.returncode == 2 and "--yes-public" in r.stderr
+    assert not (tmp_path / "out").exists() and not ledger.exists()
+
+
+def test_fanout_runs_both_in_parallel_readonly_grouped(ledger, tmp_path):
+    slow = "import time; time.sleep(2); print('ok')"
+    r = fanout(tmp_path, "--yes-public", "--group", "round-7", env=fake_env(tmp_path, slow, slow))
+    assert r.returncode == 0, r.stderr
+    assert [e["ev"] for e in rows(ledger)] == ["sent", "sent", "done", "done"]   # both started before either finished = parallel
+    assert (tmp_path / "out" / "zcode.out").read_text().strip() == "ok" and (tmp_path / "out" / "agy.out").read_text().strip() == "ok"
+    ev = rows(ledger)
+    sent = [e for e in ev if e["ev"] == "sent"]
+    assert len(sent) == 2 and {e["agent"] for e in sent} == {"zcode", "agy"}
+    assert all(e["group"] == "round-7" and e["access"] == "read-only" for e in sent)
+    assert [e["status"] for e in ev if e["ev"] == "done"] == ["ok", "ok"]
+    assert "Not merged or judged" in r.stdout
+
+
+def test_fanout_one_agent_fails_other_still_finishes(ledger, tmp_path):
+    r = fanout(tmp_path, "--yes-public", env=fake_env(tmp_path, zcode="import sys; sys.exit(4)"))
+    assert r.returncode == 1
+    assert (tmp_path / "out" / "agy.out").read_text().startswith("reviewed:")
+    dones = {e["id"]: e for e in rows(ledger) if e["ev"] == "done"}
+    assert sorted(e["status"] for e in dones.values()) == ["error", "ok"]
+
+
+def test_fanout_warns_on_empty_agent_output(ledger, tmp_path):
+    r = fanout(tmp_path, "--yes-public", env=fake_env(tmp_path, agy="pass"))
+    assert "EMPTY" in r.stdout
+
+
+def test_fanout_agy_prompt_gets_stdout_instruction_and_brief_path(ledger, tmp_path):
+    echo = "import sys; print(sys.argv[sys.argv.index('-p') + 1])"
+    fanout(tmp_path, "--yes-public", env=fake_env(tmp_path, echo, echo))
+    a, z = (tmp_path / "out" / "agy.out").read_text(), (tmp_path / "out" / "zcode.out").read_text()
+    assert "scope B" in a and "FULL answer" in a and "brief.md" in a
+    assert "scope A" in z and "FULL answer" not in z
+
+
+# ---- after the second review round (zcode + agy via fanout, 2026-09-21) ----
+
+def test_fanout_abbreviated_confirmation_flag_is_not_accepted(ledger, tmp_path):
+    for flag in ("--yes", "--y"):
+        r = fanout(tmp_path, flag, env=fake_env(tmp_path))
+        assert r.returncode == 2 and not ledger.exists()
+
+
+def test_fanout_brief_must_be_inside_cwd_and_path_is_relative(ledger, tmp_path):
+    other = tmp_path / "elsewhere"
+    other.mkdir()
+    b = other / "b.md"
+    b.write_text("x", encoding="utf-8")
+    r = subprocess.run([sys.executable, str(FANOUT), "--brief", str(b), "--zcode", "a", "--agy", "b", "--cwd", str(tmp_path / "cwd"),
+                        "--yes-public", "--out-dir", str(tmp_path / "o")], capture_output=True, text=True,
+                       env={**os.environ, **fake_env(tmp_path)})
+    assert r.returncode == 2 and "must live inside --cwd" in r.stderr
+    echo = "import sys; print(sys.argv[sys.argv.index('-p') + 1])"
+    fanout(tmp_path, "--yes-public", env=fake_env(tmp_path, echo, echo))
+    assert str(tmp_path) not in (tmp_path / "out" / "agy.out").read_text()      # no absolute local path in the prompt
+
+
+def test_fanout_never_overwrites_existing_results(ledger, tmp_path):
+    assert fanout(tmp_path, "--yes-public", env=fake_env(tmp_path)).returncode == 0
+    before = (tmp_path / "out" / "zcode.out").read_text()
+    r = fanout(tmp_path, "--yes-public", env=fake_env(tmp_path, zcode="print('different')"))
+    assert r.returncode == 2 and "already has results" in r.stderr
+    assert (tmp_path / "out" / "zcode.out").read_text() == before
+
+
+def test_fanout_sigterm_stops_the_agents_and_logs_done(ledger, tmp_path):
+    sleeper = "import time; time.sleep(30)"
+    b = tmp_path / "brief.md"
+    b.write_text("public", encoding="utf-8")
+    p = subprocess.Popen([sys.executable, str(FANOUT), "--brief", str(b), "--zcode", "a", "--agy", "b", "--cwd", str(tmp_path),
+                          "--out-dir", str(tmp_path / "out"), "--timeout", "60", "--yes-public"],
+                         env={**os.environ, **fake_env(tmp_path, sleeper, sleeper)}, stderr=subprocess.DEVNULL)
+    assert wait_for(lambda: ledger.exists() and sum(e["ev"] == "sent" for e in rows(ledger)) == 2)
+    p.send_signal(signal.SIGTERM)
+    assert p.wait(timeout=30) == 130
+    assert wait_for(lambda: sum(e["ev"] == "done" for e in rows(ledger)) == 2)
+    assert {e["status"] for e in rows(ledger) if e["ev"] == "done"} == {"error"}
+
+
+def test_recent_group_with_no_match_says_so(ledger, capsys):
+    add_sent()
+    fleet.main(["recent", "--group", "nope"])
+    assert "no records in group 'nope'" in capsys.readouterr().out
+
+
+def test_group_is_validated_when_reading(ledger, capsys):
+    add_sent()
+    for cmd in ("recent", "pending"):
+        assert fleet.main([cmd, "--group", " "]) == 2
+        assert fleet.main([cmd, "--group", ""]) == 2
+    capsys.readouterr()
+    base = {"v": 1, "ev": "sent", "ts": "2026-09-21T03:00:00+07:00", "id": "x", "agent": "agy", "label": "l",
+            "prompt_sha256": None, "prompt_len": None, "access": "unknown"}
+    assert not fleet.valid_event({**base, "group": "   "})
+
+
+def test_duplicate_id_message_says_first_send_is_kept(ledger):
+    rid = str(uuid.uuid4())
+    fleet.append_event({"ev": "sent", "id": rid, "agent": "grokbot", "label": "l", "prompt_sha256": "ab" * 32,
+                        "prompt_len": 3, "access": "unknown"})
+    with pytest.raises(fleet.Rejected, match="first send is kept.*abababababab"):
+        add_sent(rid=rid)
+
+
+def test_hook_flags_a_grokbot_payload_with_unexpected_shape(ledger):
+    r = hook(None, raw=json.dumps({"tool": "mcp__grokbot__grokbot_send", "input": {}}))
+    assert r.returncode == 0 and r.stdout == "" and "unexpected tool_name/shape" in r.stderr
+    assert not ledger.exists() or rows(ledger) == []
+
+
+def test_hook_main_returns_zero_even_on_keyboard_interrupt(monkeypatch, capsys):
+    import hook_grokbot
+
+    def boom():
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(hook_grokbot, "run", boom)
+    try:
+        rc = hook_grokbot.main()
+    except BaseException as e:                                # a leak must fail this test, not abort the whole pytest session
+        pytest.fail(f"hook main() let {type(e).__name__} escape")
+    assert rc == 0 and "KeyboardInterrupt" in capsys.readouterr().err
+
+
+def test_fanout_runs_agents_in_the_requested_cwd(ledger, tmp_path):
+    (tmp_path / "work").mkdir()
+    b = tmp_path / "work" / "brief.md"
+    b.write_text("public", encoding="utf-8")
+    where = "import os; print(os.getcwd())"
+    cmd = [sys.executable, str(FANOUT), "--brief", str(b), "--zcode", "a", "--agy", "b", "--cwd", str(tmp_path / "work"),
+           "--out-dir", str(tmp_path / "o"), "--yes-public", "--timeout", "30"]
+    r = subprocess.run(cmd, capture_output=True, text=True, env={**os.environ, **fake_env(tmp_path, where, where)}, cwd=str(HERE))
+    assert r.returncode == 0, r.stderr
+    for name in ("zcode", "agy"):
+        assert os.path.realpath((tmp_path / "o" / f"{name}.out").read_text().strip()) == os.path.realpath(tmp_path / "work")
+
+
+def test_bad_id_is_echoed_only_briefly(ledger):
+    long_text = "prompt-like text " * 30
+    r = cli("abandon", long_text, "--reason", "x")
+    assert r.returncode == 2 and "not a UUID" in r.stderr and len(r.stderr) < 120

@@ -61,3 +61,9 @@ A8 stdout/stderr/exit 3 identical through the wrapper; ledger records error/3 ·
 
 ## Residual risks (stated, not solved)
 Hand-logging Grok Bot is easy to forget (a forgotten `sent` is invisible). The state-rule scan reads the whole file (fine to thousands of events). `access` can be wrong. Grandchildren of a child can outlive a plain SIGTERM without `--timeout`.
+
+## Second pass (2026-09-21) — decisions, from the zcode + agy reviews (outputs in .tmp/fleet-ledger/ and .tmp/fanout/)
+- Task board replaced by an optional `group` field (agy: one store; zcode had ranked the board last and warned it rots). `OPTIONAL_TYPES` are validated only when present.
+- Grok Bot auto-log: hook script + PreToolUse (see README for the trade-off). The hook reads its own stdin, passes the prompt to `fleet log sent --prompt-file -` through a pipe, exits 0 always, label fixed. A duplicate messageId (re-send to inspect) is a quiet no-op that says the first hash is kept.
+- fanout: parallel `fleet run` wrappers, own files per agent, `--yes-public` required and not abbreviable, brief path relative to `--cwd`, no overwrite, SIGTERM/Ctrl-C terminates the wrappers (each forwards to its agent and still writes `done`).
+- Rejected review claims: agy said `--mode plan` forces a plan artifact (contradicted: every run with the stdout instruction returned text on stdout, incl. this one); agy said Ctrl-C leaves agents running (only true for a plain SIGTERM, fixed).

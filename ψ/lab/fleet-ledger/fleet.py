@@ -27,6 +27,7 @@ STATUSES = ("ok", "error", "timeout")
 ACCESS = ("read-only", "write", "unknown")
 MAX_LABEL = 200  # characters, not bytes
 MAX_LINE = 4096  # bytes, backstop
+MAX_GROUP = 60   # characters
 ZCODE_CMD = ["node", "/Applications/ZCode.app/Contents/Resources/glm/zcode.cjs"]
 
 
@@ -57,6 +58,13 @@ FIELD_TYPES = {
     "abandoned": {"reason": _is_str},
     "checked": {"claims_total": _is_int, "claims_wrong": _is_int},
 }
+
+# optional fields: checked only when present, so lines written before they existed stay valid
+def _is_group(x):
+    return _is_str(x) and bool(x.strip()) and len(x) <= MAX_GROUP
+
+
+OPTIONAL_TYPES = {"sent": {"group": _is_group}}
 
 
 class LedgerError(Exception):
@@ -102,7 +110,9 @@ def valid_event(obj) -> bool:
         parse_ts(obj["ts"])
     except ValueError:
         return False
-    return all(k in obj and check(obj[k]) for k, check in FIELD_TYPES[ev].items())
+    if not all(k in obj and check(obj[k]) for k, check in FIELD_TYPES[ev].items()):
+        return False
+    return all(obj.get(k) is None or check(obj[k]) for k, check in OPTIONAL_TYPES.get(ev, {}).items())
 
 
 def read_events(path: Path | None = None):
@@ -150,7 +160,8 @@ def check_state_rules(events, obj) -> None:
     ev = obj["ev"]
     if ev == "sent":
         if r is not None and r["sent"] is not None:
-            raise Rejected(f"duplicate id {obj['id']}")
+            first = r["sent"].get("prompt_sha256")
+            raise Rejected(f"duplicate id {obj['id']} (the first send is kept; its sha256 starts {first[:12] if first else '(none)'})")
         return
     if r is None or r["sent"] is None:
         raise Rejected(f"unknown id {obj['id']} (no sent event)")
@@ -280,11 +291,18 @@ def check_label(label: str) -> None:
         raise Rejected(f"label is {len(label)} characters, limit {MAX_LABEL}")
 
 
+def check_group(group: str) -> None:
+    if not group or not group.strip():
+        raise Rejected("group is empty")
+    if len(group) > MAX_GROUP:
+        raise Rejected(f"group is {len(group)} characters, limit {MAX_GROUP}")
+
+
 def norm_id(s: str) -> str:
     try:
         return str(uuid.UUID(s))
     except ValueError:
-        raise Rejected(f"not a UUID: {s!r}")
+        raise Rejected(f"not a UUID: {s[:40]!r}")
 
 
 # ---------- commands ----------
@@ -297,8 +315,12 @@ def cmd_log_sent(a):
         raw = sys.stdin.buffer.read() if a.prompt_file == "-" else Path(a.prompt_file).read_bytes()
         text = raw.decode("utf-8", errors="replace")
     sha, ln = prompt_fields(text)
-    append_event({"ev": "sent", "id": rid, "agent": a.agent, "label": a.label,
-                  "prompt_sha256": sha, "prompt_len": ln, "access": a.access})
+    ev = {"ev": "sent", "id": rid, "agent": a.agent, "label": a.label,
+          "prompt_sha256": sha, "prompt_len": ln, "access": a.access}
+    if a.group:
+        check_group(a.group)
+        ev["group"] = a.group
+    append_event(ev)
     print(rid)
     return 0
 
@@ -329,13 +351,19 @@ def cmd_abandon(a):
     return 0
 
 
+def _in_group(rec, group) -> bool:
+    return not group or rec["sent"].get("group") == group
+
+
 def cmd_pending(a):
+    if a.group is not None:
+        check_group(a.group)
     events, bad = read_events()
     warn_bad(bad)
     now = datetime.now().astimezone()
     rows = []
     for rid, r in fold(events).items():
-        if r["sent"] is not None and r["end"] is None:
+        if r["sent"] is not None and r["end"] is None and _in_group(r, a.group):
             age = (now - parse_ts(r["sent"]["ts"])).total_seconds()
             rows.append((age, rid, r["sent"]))
     if not rows:
@@ -350,9 +378,11 @@ def cmd_pending(a):
 
 
 def cmd_recent(a):
+    if a.group is not None:
+        check_group(a.group)
     events, bad = read_events()
     warn_bad(bad)
-    recs = [r for r in fold(events).values() if r["sent"] is not None]
+    recs = [r for r in fold(events).values() if r["sent"] is not None and _in_group(r, a.group)]
     recs.sort(key=lambda r: parse_ts(r["sent"]["ts"]), reverse=True)
     now = datetime.now().astimezone()
     for r in recs[: a.n]:
@@ -369,7 +399,8 @@ def cmd_recent(a):
             chk = f"checked {c['claims_wrong']}/{c['claims_total']} wrong"
         print(f"{s['ts'][:16].replace('T', ' ')}  {s['agent']:<9} {state:<9} {dur:<6} {chk:<20} {s['label']}")
     if not recs:
-        print("ledger is empty")
+        total = sum(1 for r in fold(events).values() if r["sent"] is not None)
+        print(f"no records in group {a.group!r}" if a.group and total else "ledger is empty")
     return 0
 
 
@@ -395,6 +426,9 @@ def cmd_run(a, tail):
     sha, ln = prompt_fields(prompt)
     sent = {"ev": "sent", "id": rid, "agent": a.agent, "label": a.label,
             "prompt_sha256": sha, "prompt_len": ln, "access": a.access or inferred}
+    if a.group:
+        check_group(a.group)
+        sent["group"] = a.group
     # Signal handlers go in BEFORE anything is launched, so a SIGTERM in the gap cannot kill the wrapper
     # without a `done`: a signal that arrives before the child exists is queued and forwarded right after spawn.
     new_session = a.timeout is not None
@@ -487,6 +521,7 @@ def build_parser():
     r.add_argument("--id")
     r.add_argument("--access", choices=ACCESS)
     r.add_argument("--timeout", type=float)
+    r.add_argument("--group")
 
     lg = sub.add_parser("log", help="record an event by hand").add_subparsers(dest="what", required=True)
     s = lg.add_parser("sent")
@@ -495,6 +530,7 @@ def build_parser():
     s.add_argument("--id")
     s.add_argument("--prompt-file")
     s.add_argument("--access", choices=ACCESS, default="unknown")
+    s.add_argument("--group")
     d = lg.add_parser("done")
     d.add_argument("--id", required=True)
     d.add_argument("--status", choices=STATUSES, required=True)
@@ -513,8 +549,10 @@ def build_parser():
 
     pe = sub.add_parser("pending", help="sent with no done/abandoned")
     pe.add_argument("--stale-hours", type=float, default=12.0)
+    pe.add_argument("--group")
     rc = sub.add_parser("recent", help="latest calls")
     rc.add_argument("n", type=int, nargs="?", default=10)
+    rc.add_argument("--group")
     return p
 
 

@@ -32,3 +32,11 @@ Things to know
 - flock is advisory: a human `>>` bypasses it. The reader skips and counts malformed lines, and the next write starts on a fresh line.
 - Hand-logging Grok Bot is easy to forget; a forgotten `sent` is invisible. Nothing enforces it yet.
 - Not done on purpose: cost tracking, automatic hooks, Jev calls (jev-gate has its own shadow.jsonl), Discord `squad status`.
+
+## Added 2026-09-21 (second pass): group, Grok Bot hook script, fanout
+- `--group NAME` (≤60 chars) on `run` / `log sent`; `recent --group`, `pending --group`. Optional field: older lines stay valid. Used instead of a separate task board (one store, nothing to fall out of sync).
+- `hook_grokbot.py` — PreToolUse hook script for `mcp__grokbot__grokbot_send`. Logs the send with the messageId as id, a FIXED label and the prompt's hash/length only (prompt goes through a pipe, never a shell). Always exits 0, prints nothing on stdout.
+  **NOT registered anywhere.** Registering it means editing `.claude/settings.json`, which needs Moss's OK. It would look like:
+  `"PreToolUse": [{"matcher": "mcp__grokbot__grokbot_send", "hooks": [{"type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR\"/ψ/lab/fleet-ledger/hook_grokbot.py"}]}]`
+  Chosen PreToolUse over PostToolUse: a send that fails midway may still have reached Grok, and a missing entry is invisible while a leftover one (denied send) shows in `fleet pending` and can be `abandon`ed. Unverified: whether the hook fires before the approval prompt, and the exact stdin shape (docs say tool_name/tool_input; a payload mentioning grokbot with another shape prints a warning on stderr).
+- `fanout.py --brief FILE --zcode "…" --agy "…" --yes-public` — runs zcode and agy in parallel through `fleet run` (read-only flags: `--disallowedTools` for zcode, `--mode plan` for agy — advisory, not a sandbox; `--timeout` 900), one prompt per agent (split scope), outputs to `.tmp/fanout/<stamp>/`. Brief must live inside `--cwd` (relative path is sent). Never overwrites earlier results. Ctrl-C/SIGTERM stops both agents. It does not merge or judge: verify every claim against source.
