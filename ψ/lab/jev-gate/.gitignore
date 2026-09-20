@@ -1,0 +1,6 @@
+shadow.jsonl
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+uv.lock
