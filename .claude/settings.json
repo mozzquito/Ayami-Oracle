@@ -7,6 +7,11 @@
     "deny": [],
     "ask": []
   },
+  "statusLine": {
+    "type": "command",
+    "command": "bash \"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel)}/.claude/scripts/statusline-ayami.sh\"",
+    "padding": 0
+  },
   "hooks": {
     "SessionStart": [
       {
