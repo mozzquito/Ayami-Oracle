@@ -135,7 +135,7 @@ echo "$(date '+%Y-%m-%d %H:%M') | STATE | task description" >> ψ/memory/logs/ac
 
 **Core principle: User must always know when accessing files outside this repo.**
 
-Any file operation outside `/Users/nat/Code/github.com/laris-co/Nat-s-Agents/`:
+Any file operation outside `/Users/phongcheatphus/ayami-oracle/`:
 1. **Inform user** before accessing, OR
 2. **Ask for confirmation** first
 
