@@ -42,7 +42,9 @@ TRANSCRIPT=$(printf '%s' "$INPUT" | jq -r '.transcript_path // empty' 2>/dev/nul
 
 # Context size = input + cache-write + cache-read of the last real assistant turn.
 # A compact_boundary after it means that number is stale, so stay silent until the next turn.
-used=$(tail -n 40 "$TRANSCRIPT" | jq -rs '
+# Window: 100 lines. Measured over 863 prompts, the last assistant usage line was at most 40 lines
+# before the next prompt (p99 = 22), so 100 leaves ample margin; a miss only skips one warning.
+used=$(tail -n 100 "$TRANSCRIPT" | jq -rs '
   (map(select(.type=="assistant" and .isSidechain!=true and ((.message.usage.output_tokens // 0) > 0))) | length) as $n
   | if $n == 0 then empty else
       (to_entries
@@ -61,6 +63,10 @@ used_k=$((used / 1000))
 [ "$used_k" -lt "$WARN_K" ] && exit 0
 
 if [ "$used_k" -ge "$HARD_K" ]; then
+  if [ -z "$ROOT" ]; then
+    echo "🚨 CONTEXT ${used_k}k (limit ${HARD_K}k) - Tell มอส now and suggest \`/forward\` + a fresh session before more work. (no project dir, handoff not logged)"
+    exit 0
+  fi
   HANDOFF_LOG="$ROOT/ψ/inbox/handoff.log"
 
   # Already logged within the last hour? Then just show status.
