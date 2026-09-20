@@ -75,3 +75,14 @@ The blog doesn't state its ZCode version; mine is 3.6.5 (3.11.2 was offered as a
 
 - **zcode CLI checked**: `zcode` = `node /Applications/ZCode.app/Contents/Resources/glm/zcode.cjs` (12MB, inside the app bundle). Static string scan: **no** snapshot-upload code (0 hits: upload-credential, captureBeforePrompt, encryptedArtifact, x-oss, aes-256-ctr, RSA-OAEP, repo-snapshot). `zcode.z.ai/api/v1` there is the OAuth client (`ZaiCliOAuthError`); `checkpoints` refers to local `/rewind`. The 7 plugins under `glm/packages/` are clean too. → The blog's mechanism is Electron-app-only. Limit: static scan, no runtime traffic capture.
 - **Lock applied** (Moss approved): `mkdir -p ~/.zcode/v2/checkpoints && chflags uchg ~/.zcode/v2/checkpoints`; `touch` inside → `Operation not permitted` ✅. Undo: `chflags nouchg`.
+
+---
+## Follow-up 2026-09-19 05:5x (rrr — appended)
+
+Verified in ZCode.app 3.6.5 `app.asar` after the earlier notes:
+- **Real UI labels** (English): "Index new folders" (Settings → Indexing → Codebase; = `repoSnapshotIndexingEnabled`) and "Improve experience" (same page as "Data storage path"/"Onboarding"; = `optimizeAgentExperienceEnabled`). The blog's names are the internal flag names.
+- **Neither toggle gates capture**: `repoSnapshotIndexingEnabled` is read only by the settings UI; `optimizeAgentExperienceEnabled` has 26 occurrences = schema + migration + 5 settings-UI state uses, none in `captureBeforePromptUnsafe`. (My earlier "both verified" was said after checking only the first — closed here.)
+- **`.git` is included**: the include-decision function returns `include:true` for root `.git` metadata and any path with a `.git` segment (`hasGitInternalSegment`).
+- **Secret filter exists but skips `.git`**: `.env*`, `.npmrc`, `id_rsa*`, `*.pem/.key/.p12/.pfx`, names containing `token`/`secret` are excluded for normal files, but the `.git` include check comes first — old secrets in commit history are not filtered.
+- Skipped dirs: `node_modules`, `.cache`, `.turbo`, `dist`, `build`, `out`, `.next`, `coverage`.
+- Still unknown: why capture never ran on this machine.
