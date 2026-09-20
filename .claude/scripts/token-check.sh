@@ -82,14 +82,16 @@ if [ "$used_k" -ge "$HARD_K" ]; then
     fi
   fi
 
-  echo "🚨 CONTEXT ${used_k}k (limit ${HARD_K}k) - Tell มอส now and suggest \`/forward\` + a fresh session before more work. Every turn re-reads all ${used_k}k. Handoff logged to ψ/inbox/handoff.log"
-
   RECENT_COMMITS=$(git -C "$ROOT" log --oneline -3 2>/dev/null | sed 's/^/  /')
   FOCUS=$(grep "TASK:" "$ROOT/ψ/inbox/focus-agent-main.md" 2>/dev/null | head -1)
   [ -n "$FOCUS" ] || FOCUS="(no focus set)"
 
+  # Write first, announce after: only claim "logged" if the append really succeeded.
+  # Known limit: the once-per-hour check above is read-then-append with no lock, so two sessions
+  # crossing the limit at the same instant can both log. Accepted: the log is append-only and a
+  # duplicate entry is harmless.
   mkdir -p "$(dirname "$HANDOFF_LOG")" 2>/dev/null
-  {
+  if {
     echo ""
     echo "---"
     echo "## $(date '+%Y-%m-%d %H:%M') | ${used_k}k"
@@ -99,7 +101,11 @@ if [ "$used_k" -ge "$HARD_K" ]; then
     echo "**Commits**:"
     echo "$RECENT_COMMITS"
     echo ""
-  } >> "$HANDOFF_LOG"
+  } 2>/dev/null >> "$HANDOFF_LOG"; then
+    echo "🚨 CONTEXT ${used_k}k (limit ${HARD_K}k) - Tell มอส now and suggest \`/forward\` + a fresh session before more work. Every turn re-reads all ${used_k}k. Handoff logged to ψ/inbox/handoff.log"
+  else
+    echo "🚨 CONTEXT ${used_k}k (limit ${HARD_K}k) - Tell มอส now and suggest \`/forward\` + a fresh session before more work. Every turn re-reads all ${used_k}k. (could not write ψ/inbox/handoff.log)"
+  fi
 else
   echo "⚠️ CONTEXT ${used_k}k (warn ${WARN_K}k) - Mention to มอส that this session is getting long; suggest wrapping up this task and \`/forward\` into a fresh session."
 fi
