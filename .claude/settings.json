@@ -58,6 +58,15 @@
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/log-task-start.sh"
           }
         ]
+      },
+      {
+        "matcher": "mcp__grokbot__grokbot_send",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/ψ/lab/fleet-ledger/hook_grokbot.py"
+          }
+        ]
       }
     ],
     "PostToolUse": [

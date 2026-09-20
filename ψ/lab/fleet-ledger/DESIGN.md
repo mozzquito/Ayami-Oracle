@@ -6,7 +6,7 @@ Grok Bot; keep `checked`; store label + hash + length only; Jev out of scope.
 ## Layout
 `ψ/lab/fleet-ledger/fleet.py` (single file, stdlib only, Python ≥ 3.9), `test_fleet.py`, `README.md`.
 Ledger: `ψ/memory/logs/fleet-ledger.jsonl` (git-ignored through `ψ/.gitignore` → `memory/logs/`), created mode 0600; override with env `FLEET_LEDGER`.
-Nothing under `.claude/` is touched.
+The tool itself touches nothing under `.claude/`. (Since 2026-09-21 the owner registered `hook_grokbot.py` in `.claude/settings.json`, see README.)
 
 ## Format
 One JSONL file. Every line: `{"v":1,"ev":…,"ts":…,"id":…, …fields}`; `ev` ∈ sent | done | abandoned | checked; `ts` is timezone-aware ISO-8601 (local offset).
