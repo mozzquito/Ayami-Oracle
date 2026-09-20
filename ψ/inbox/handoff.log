@@ -1,0 +1,22 @@
+
+---
+## 2026-09-21 02:55 | 588k
+
+**Focus**: TASK: fleet-ledger stage 2 design (requirements v2 validated by Moss; consulting zcode+agy on DESIGN-draft)
+
+**Commits**:
+  82a2c773 lab: add openthai-local, hardened local server and evaluation of OpenThai-SystemOne
+  f38acb7b rrr: retrospective + lessons for the TypeSafe Jev session
+  95d15cfd lab: add jev-verifier, Jev as claim verifier next to /zcode and /agy
+
+
+---
+## 2026-09-21 03:59 | 358k
+
+**Focus**: TASK: /Users/nat path fixed in CLAUDE.md File Access Rules (uncommitted); memory saved; session at hard limit - /forward done, start fresh
+
+**Commits**:
+  ed9ccd80 fix: token-check window 40->100 lines, no /ψ write when project dir is unknown
+  2de8f71b lab: add fleet-ledger, append-only ledger of calls to zcode/agy/grok/Grok Bot
+  07929c60 docs: slim CLAUDE.md, move inherited Nat's Agents sections to CLAUDE_legacy.md
+
