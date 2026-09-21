@@ -1,0 +1,71 @@
+--- ~/.claude/CLAUDE.md (current)
++++ ~/.claude/CLAUDE.md (proposed v2)
+@@ -51,20 +51,54 @@
+ it → watch it) still applies, even if some stages are a single sentence of reasoning
+ rather than a formal document.
+ 
+-## Consult zcode + agy at every stage
++## Consult zcode + agy where it pays off
+ 
+-At each of the 6 stages above, bring in **zcode** (GLM-backed CLI agent) and **agy**
+-(Gemini/Sonnet-backed CLI agent) as a second opinion or cross-check before moving to the
+-next stage — don't just self-review. Concretely:
++zcode (GLM-backed CLI agent) and agy (Gemini/Sonnet-backed CLI agent) are second opinions, not
++a ritual, and they stay consult-only: they review and advise, they do not do Claude's work. Every
++consult adds turns and output to a context that is re-read on every later turn, so spend them
++where a different model is most likely to catch what Claude would miss.
+ 
+-- Requirement: ask zcode/agy if the understood requirement is complete/ambiguous before validating with the user.
+-- Design: ask zcode/agy to poke at the architecture/approach for gaps or simpler alternatives.
+-- Develop: ask zcode/agy to review the diff alongside Claude's own self-review.
+-- Testing: ask zcode/agy to suggest edge cases or review test coverage.
+-- Deploy: ask zcode/agy to sanity-check the release/rollout plan.
+-- Maintain: ask zcode/agy periodically for a second read on what to optimize/improve.
++**Consult for non-trivial work:**
++- Design: poke at the architecture/approach for gaps or simpler alternatives.
++- Develop: review the diff alongside Claude's own self-review.
+ 
+-Claude still drives and does the actual work (per the rule above) — zcode/agy are
+-consulted for a second opinion at each gate, not delegated the stage's work. Use the
+-`/zcode` and `/agy` skills to invoke them. Skip this for trivial one-off questions or
+-pure investigation, same as the SDLC gate itself.
++**Also consult when the risk warrants it** (ambiguous requirement, security/data/infra impact,
++production deploy, missing or flaky test coverage):
++- Requirement: is the understood requirement complete/ambiguous?
++- Testing: suggest edge cases or review coverage.
++- Deploy: sanity-check the release/rollout plan.
++- Maintain: a periodic second read on what to optimize/improve.
++
++**Skip** for trivial one-off questions, pure investigation, and small changes the diff or tests
++already verify (roughly: a few dozen lines, docs/config moves, renames). A change that touches
++security, infra, or data is never "small": consult.
++
++**Keep each consult cheap:**
++- One consult per gate: batch all questions into one prompt, send to zcode and agy in parallel.
++- Ask for a short answer on stdout ("reply in <=30 lines"); use a file only when it must be longer.
++- Pass the diff or a path, not a pasted transcript of the session.
++- Give them only what the question needs: no secrets, credentials, or customer/PII data
++  (e.g. eVisa). Whatever they read goes to an external model provider.
++
++Claude still drives every stage and makes the decisions. Use the `/zcode` and `/agy` skills to
++invoke them.
++
++## Delegate mechanical work to Claude subagents
++
++Delegation only saves tokens when it *replaces* work Claude would otherwise do inside its own
++context. Hand these mechanical sub-tasks to a Claude subagent (Explore / context-finder: isolated
++context, returns a summary) and read only the summary. Decisions and the final verification stay
++with Claude:
++- reading/summarizing large files, logs, or docs
++- broad code search
++- first drafts of boilerplate
++- long test/lint/build loops
++
++zcode/agy are not delegates for this: the SDLC rule above says no external tool does Claude's work
++in its place.
++
++## Keep sessions short
++
++Every turn re-reads the whole context, so cost grows with session length. One task per session;
++when the context passes about 150k tokens, wrap up, write a handoff, and continue in a fresh
++session.
