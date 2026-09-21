@@ -90,10 +90,12 @@ kick() {
     bash "$SELF" --refresh "$1" "$2" </dev/null >/dev/null 2>&1 &
   fi
 }
-# cached KIND KEY TTL : print the cached value (maybe stale, maybe nothing) and refresh when older than TTL
+# cached KIND KEY TTL [IDLE] : print the cached value (maybe stale, maybe nothing) and refresh when older than TTL.
+# IDLE non-empty = a refreshInterval tick with nothing new: a missing cache is still created, an existing one is left alone.
 cached() {
   local f="$CACHE/$1.$2.txt"
-  if [ ! -f "$f" ] || [ $(( $(now) - $(mtime "$f") )) -ge "$3" ]; then kick "$1" "$2"; fi
+  if [ ! -f "$f" ]; then kick "$1" "$2"
+  elif [ -z "$4" ] && [ $(( $(now) - $(mtime "$f") )) -ge "$3" ]; then kick "$1" "$2"; fi
   [ -f "$f" ] && cat "$f"
 }
 
@@ -123,11 +125,19 @@ def ts(f): try (f | if type == "number" then ((if . > 100000000000 then ./1000 e
   g(.workspace.git_worktree // .worktree.name),
   g(.pr.number),
   g(.prompt_cache.warm), g(.prompt_cache.requests),
-  (try (.prompt_cache.recache_tokens_if_cold | floor | tostring) catch "")
+  (try (.prompt_cache.recache_tokens_if_cold | floor | tostring) catch ""),
+  ts(.prompt_cache.expires_at),
+  g(.cost.total_api_duration_ms)
 ] | join("\u001f")'
-IFS="$US" read -r model effort fast cwd sid used rl5 rl5_at rl7 rl7_at wt pr pcw pcr pct \
+IFS="$US" read -r model effort fast cwd sid used rl5 rl5_at rl7 rl7_at wt pr pcw pcr pct pce api \
   <<< "$(printf '%s' "$input" | jq -r "$JQ" 2>/dev/null)"
 sid=${sid//[^A-Za-z0-9-]/}
+# idle tick (a refreshInterval re-render with no new API activity since the last render): spend cannot have changed,
+# so do not re-run ccusage. A missing cache is still created; anything unreadable counts as "not idle" (= refresh as before).
+idle=""
+if [ -n "$sid" ] && isnum "${api%%.*}"; then
+  if [ "$(cat "$CACHE/lastapi.$sid" 2>/dev/null)" = "$api" ]; then idle=1; else printf '%s\n' "$api" > "$CACHE/lastapi.$sid" 2>/dev/null; fi
+fi
 [ -n "$cwd" ] || cwd="$PWD"
 
 if [ -n "$NO_COLOR" ] || [ "$TERM" = dumb ]; then
@@ -143,7 +153,7 @@ case "$model" in *"("*) ;; *) [ -n "$effort" ] && l1="$l1 ($effort)" ;; esac
 [ "$fast" = true ] && l1="$l1 ⚡fast"
 
 if [ -n "$sid" ]; then
-  cc=$(cached ccusage "$sid" 30)
+  cc=$(cached ccusage "$sid" 30 "$idle")
   if [ -n "$cc" ]; then
     # keep ccusage's cost/burn segments only: model and context are rendered live from stdin
     cc_mid=""; set -f; oIFS=$IFS; IFS='|'
@@ -234,11 +244,22 @@ if [ -f "$FOCUS" ]; then
     [ -n "$since" ] && [ "$st" != completed ] && [ "$st" != stale ] && l3="$l3 ${D}(${since})${R}"
   fi
 fi
-# cold prompt cache: the next message re-writes the whole context at full price (shown only when cold)
-if [ "$pcw" = false ] && isnum "$pcr" && [ "$pcr" -gt 0 ]; then
-  cold="🧊 cache cold"
-  isnum "$pct" && [ "$pct" -gt 0 ] && cold="$cold (~$(( pct / 1000 ))k to re-cache)"
-  l3="${l3:+$l3 • }${Y}${cold}${R}"
+# prompt cache. Cold (or warm but already past expires_at): the next message re-writes the whole context at full price.
+# Warm but close to expiry: a minute countdown, so the user can act before it goes cold. Hidden while comfortably warm.
+if isnum "$pcr" && [ "$pcr" -gt 0 ]; then
+  left=""; isnum "$pce" && left=$(( pce - $(now) ))
+  if [ "$pcw" = false ] || { [ "$pcw" = true ] && [ -n "$left" ] && [ "$left" -le 0 ]; }; then
+    cold="🧊 cache cold"
+    isnum "$pct" && [ "$pct" -gt 0 ] && cold="$cold (~$(( pct / 1000 ))k to re-cache)"
+    l3="${l3:+$l3 • }${Y}${cold}${R}"
+  elif [ "$pcw" = true ] && [ -n "$left" ]; then
+    m=$(( (left + 59) / 60 )); show=${STATUSLINE_CACHE_SHOW_MIN:-30}; isnum "$show" || show=30
+    if [ "$m" -le "$show" ]; then
+      c=$D; [ "$m" -le 10 ] && c=$Y
+      if [ "$m" -ge 60 ]; then cdown="$(( m / 60 ))h$(printf %02d $(( m % 60 )))m"; else cdown="${m}m"; fi
+      l3="${l3:+$l3 • }${c}🧊 ${cdown}${R}"
+    fi
+  fi
 fi
 if [ -f "$FLEET_PY" ]; then
   read -r pn ps <<< "$(cached fleet all 60)"

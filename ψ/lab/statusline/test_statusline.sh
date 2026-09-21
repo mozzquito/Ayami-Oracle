@@ -238,13 +238,34 @@ echo "== cold prompt cache =="
 out=$(runfx '.prompt_cache.warm=false | .prompt_cache.recache_tokens_if_cold=145474' | strip)
 has "cold cache marker + size" "$out" "🧊 cache cold (~145k to re-cache)"
 out=$(runfx '.prompt_cache.warm=false | .prompt_cache.requests=0' | strip); lacks "cold with 0 requests -> hidden" "$out" "🧊"
+# countdown to expiry: warm + expires_at within STATUSLINE_CACHE_SHOW_MIN (default 30 min). Offsets avoid minute boundaries.
+out=$(runfx '.prompt_cache.expires_at = ((now|floor) + 37*60)' | strip);  lacks "37 min left (> 30) -> hidden" "$out" "🧊"
+out=$(runfx '.prompt_cache.expires_at = ((now|floor) + 25*60 + 30)' | strip); has "26 min left -> 🧊 26m" "$out" "🧊 26m"
+out=$(runfx '.prompt_cache.expires_at = ((now|floor) + 25*60 + 30)'); has "26 min left -> dim, not yellow" "$out" "${ESC}[2m🧊 26m"
+out=$(runfx '.prompt_cache.expires_at = ((now|floor) + 8*60 + 30)');  has "9 min left -> yellow" "$out" "${ESC}[33m🧊 9m"
+out=$(runfx '.prompt_cache.expires_at = ((now|floor) + 30)' | strip);  has "30 s left -> 🧊 1m (rounded up, never 0m)" "$out" "🧊 1m"
+out=$(runfx '.prompt_cache.expires_at = ((now|floor) + 37*60)' STATUSLINE_CACHE_SHOW_MIN=60 | strip); has "SHOW_MIN=60 -> 37 min shown" "$out" "🧊 37m"
+out=$(runfx '.prompt_cache.expires_at = ((now|floor) + 90*60)' STATUSLINE_CACHE_SHOW_MIN=120 | strip); has "90 min left -> 1h30m" "$out" "🧊 1h30m"
+out=$(runfx '.prompt_cache.expires_at = ((now|floor) + 25*60)' STATUSLINE_CACHE_SHOW_MIN=abc | strip); has "junk SHOW_MIN -> default 30" "$out" "🧊 25m"
+out=$(runfx '.prompt_cache.expires_at = ((now|floor) - 60) | .prompt_cache.recache_tokens_if_cold=145474' | strip)
+has "warm but past expires_at -> cold marker" "$out" "🧊 cache cold (~145k to re-cache)"
+out=$(runfx '.prompt_cache.expires_at = ((now|floor) + 600) | .prompt_cache.requests=0' | strip); lacks "countdown with 0 requests -> hidden" "$out" "🧊"
+out=$(runfx '.prompt_cache.expires_at = "garbage"' | strip); lacks "junk expires_at -> hidden, no crash" "$out" "🧊"; eq "junk expires_at: exit 0" "$(rc)" 0
+out=$(runfx 'del(.prompt_cache.expires_at)' | strip); lacks "no expires_at -> hidden" "$out" "🧊"
+out=$(runfx '.prompt_cache.expires_at = (((now|floor) + 600) * 1000)' | strip); has "expires_at in ms is understood" "$out" "🧊 10m"
+out=$(runfx '.prompt_cache.warm=false | .prompt_cache.expires_at = ((now|floor) + 600)' | strip); has "cold wins over countdown" "$out" "🧊 cache cold"; lacks "cold: no countdown too" "$out" "🧊 10m"
 out=$(runfx 'del(.prompt_cache)' | strip); lacks "no prompt_cache -> hidden" "$out" "🧊"
 
 echo "== refresh path (fake npx: real detach + lock + atomic write + backoff) =="
 FAKE_PY="$T/fleet_fake.py"
 CNT="$T/npx.count"
-# arun [VAR=val ...] : render with refresh ENABLED, fake npx first on PATH, output discarded
-arun() { printf '%s' "$(cat "$FIX")" | env PATH="$T/bin:$PATH" STATUSLINE_CACHE_DIR="$T/cache" STATUSLINE_FOCUS_FILE="$T/none" \
+# arun [VAR=val ...] : render with refresh ENABLED, fake npx first on PATH, output discarded.
+# Every call carries a different cost.total_api_duration_ms, like a real event-driven render after new API activity
+# (identical stdin twice in a row = a refreshInterval idle tick, which must NOT re-run ccusage: see "idle tick" below).
+arun() { jq -c --argjson n "$RANDOM$RANDOM" '.cost.total_api_duration_ms = $n' "$FIX" | env PATH="$T/bin:$PATH" STATUSLINE_CACHE_DIR="$T/cache" STATUSLINE_FOCUS_FILE="$T/none" \
+           STATUSLINE_FLEET_PY="$FAKE_PY" "$@" /bin/bash "$SCRIPT" >/dev/null 2>&1; }
+# irun [VAR=val ...] : the fixture verbatim (same API time every call) = an idle tick
+irun() { cat "$FIX" | env PATH="$T/bin:$PATH" STATUSLINE_CACHE_DIR="$T/cache" STATUSLINE_FOCUS_FILE="$T/none" \
            STATUSLINE_FLEET_PY="$FAKE_PY" "$@" /bin/bash "$SCRIPT" >/dev/null 2>&1; }
 runs() { [ -f "$CNT" ] && wc -l < "$CNT" | tr -d ' ' || echo 0; }
 fresh() { rm -rf "$T/cache" "$CNT"; mkdir -p "$T/cache"; }
@@ -283,6 +304,29 @@ eq "no cache + failing npx (offline): one attempt, then an empty marker file" "$
 [ -f "$cachef" ] && [ ! -s "$cachef" ] && ok || bad "empty marker file exists" "$(ls -la "$T/cache" | tail -3)"
 out=$(run "$(cat "$FIX")" | strip); lacks "empty marker -> no cost segment, no junk" "$out" "💰"
 
+# 2b. idle tick (refreshInterval): identical stdin as the previous render = no new API activity = ccusage must not re-run
+printf '#!/bin/bash\necho run >> "%s"\ncat >/dev/null\nprintf "🤖 I | 💰 \\$3 session\\n"\n' "$CNT" > "$T/bin/npx"; fresh
+irun; sleep 1.5
+eq "idle: first render (no cache yet) still creates the cache" "$(runs)" 1
+touch -t "$AGO" "$cachef"
+irun; sleep 1.5
+eq "idle: same stdin + stale cache -> no ccusage run" "$(runs)" 1
+irun; irun; sleep 1.5
+eq "idle: several ticks -> still no run" "$(runs)" 1
+arun; sleep 1.5
+eq "new API activity + stale cache -> ccusage runs again" "$(runs)" 2
+touch -t "$AGO" "$cachef"; rm -f "$T/cache/lastapi.$SID"
+irun; sleep 1.5
+eq "idle marker gone (GC / first tick) -> counts as not idle, refreshes" "$(runs)" 3
+out=$(run "$(cat "$FIX")" | strip); has "idle tick still prints the cached cost" "$out" '💰 $3'
+# no API time in stdin at all: never treated as idle
+fresh; rm -f "$CNT"; NOAPI=$(jq -c 'del(.cost.total_api_duration_ms)' "$FIX")
+printf '%s' "$NOAPI" | env PATH="$T/bin:$PATH" STATUSLINE_CACHE_DIR="$T/cache" STATUSLINE_FOCUS_FILE="$T/none" STATUSLINE_FLEET_PY="$FAKE_PY" /bin/bash "$SCRIPT" >/dev/null 2>&1; sleep 1.5
+touch -t "$AGO" "$cachef"
+printf '%s' "$NOAPI" | env PATH="$T/bin:$PATH" STATUSLINE_CACHE_DIR="$T/cache" STATUSLINE_FOCUS_FILE="$T/none" STATUSLINE_FLEET_PY="$FAKE_PY" /bin/bash "$SCRIPT" >/dev/null 2>&1; sleep 1.5
+eq "no cost.total_api_duration_ms in stdin -> never idle, refreshes as before" "$(runs)" 2
+[ ! -f "$T/cache/lastapi.$SID" ] && ok || bad "no api time -> no idle marker written" "$(ls "$T/cache")"
+
 # 3. hung npx: the whole process group is killed, not just the direct child.
 #    The marker is built at run time: a literal in this file would also match any shell whose command line quotes the test source.
 MARK="29.$$"
@@ -309,7 +353,7 @@ sleep 2
 after=$(find "$T" -not -path "$T/cache*" | sort | md5)
 eq "hostile session_id + refresh: nothing outside the cache dir" "$after" "$before"
 [ -f "$T/cache/ccusage.et.txt" ] && ok || bad "hostile session_id: sanitised to [et], refresh wrote ccusage.et.txt inside the cache" "$(ls "$T/cache")"
-eq "hostile session_id: only expected file names in the cache" "$(ls "$T/cache" | grep -Evc '^(ccusage\.et\.(in|txt)|fleet\.all\.txt)$')" 0
+eq "hostile session_id: only expected file names in the cache" "$(ls "$T/cache" | grep -Evc '^(ccusage\.et\.(in|txt)|lastapi\.et|fleet\.all\.txt)$')" 0
 
 # 6. fleet refresh (fake fleet.py): parsing of the real `pending` output shape
 fleet_case() {   # NAME EXPECTED_CACHE  (fake fleet.py body comes from stdin)
