@@ -1,3 +1,3 @@
-STATE: pending
-TASK: eVisa n8n cleanup - Drive check blocked (connector = napa.p@ditc.co.th, wrong account); README label swap held (lines are other session uncommitted); My workflow 2 deactivate pending (n8n VM ssh timed out 13:1x). Waiting on Moss.
-SINCE: 13:11
+STATE: completed
+TASK: /rrr + /forward re-run for session 887c0465; open a fresh session from the 2026-09-21_13-01 handoff (context 861k)
+SINCE: 16:13
