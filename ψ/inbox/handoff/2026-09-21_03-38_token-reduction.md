@@ -79,3 +79,18 @@
 - **Not pushed**, so PR #3 does not show the fix yet. Push = Moss's call (repo is PUBLIC).
 - `lab/jev-gate` still holds the OLDER copies of these files; the two branches now differ. Not synced on purpose.
 - Still legacy: `.claude/scripts/statusline.sh` and `tokens.sh` read the dead statusline.json (documented, not changed).
+
+## Update 16:15 (resumed after 12h idle) — CORRECTIONS, read this first
+Verified against git/GitHub at 16:12, not from memory:
+- **PR #3 is MERGED** (2026-09-21 04:03Z = 11:03 ICT, merge commit `ea4c2244`, head `376a083d` = the original 4 cherry-picked commits). It was **not merged by this session**
+  (no `gh pr merge` in this session's transcript; another session/Moss did it). The earlier "PR open, not merged" lines above are stale.
+- **The Sourcery follow-up `d2fde98f` is NOT in main and NOT on origin.** It exists only on the LOCAL branch `fix/token-reduction` (origin's copy stops at `376a083d`).
+  So main still has: the old HOOKS-SETUP.md (documents statusline.json), the "Handoff logged" message printed before the write, the absolute-path wording in File Access Rules.
+  To land it: push `d2fde98f` (best on a NEW branch, e.g. `fix/token-sourcery-followup`, since `fix/token-reduction` is already merged) and open a PR against `main`
+  (always `--repo mozzquito/Ayami-Oracle`; repo is PUBLIC; needs Moss's OK).
+- **PR #4 is open** ("lab: jev-gate, jev-verifier, openthai-local, fleet-ledger ...") from `lab/jev-gate`, opened by another session. It still carries the 4 ORIGINAL token-reduction commits;
+  main already has identical content from PR #3, so expect them to resolve as no-ops, but check before merging.
+- Committed this update: `ec1f5b6f` on `lab/jev-gate` (append-only handoff.log entries + focus state). NOT committed on purpose: `ψ/outbox/2026-09-21_pending.md` —
+  another session rewrote it and it now drops 37 previously recorded lines (incl. this session's and 2d36a871's sections). Those lines are recoverable from git history; do not commit the rewrite blindly.
+- This session was resumed at ~366k context (cache had expired), i.e. exactly the pattern the token-check hook warns about. Start fresh instead of resuming.
+- Still Moss's: confirm the "Delegate" wording in `~/.claude/CLAUDE.md`; revoke the 2 old TypeSafe keys; decide push/PR for `d2fde98f`; split the shared focus file per session.
