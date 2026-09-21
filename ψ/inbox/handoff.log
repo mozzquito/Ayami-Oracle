@@ -20,3 +20,36 @@
   2de8f71b lab: add fleet-ledger, append-only ledger of calls to zcode/agy/grok/Grok Bot
   07929c60 docs: slim CLAUDE.md, move inherited Nat's Agents sections to CLAUDE_legacy.md
 
+
+---
+## 2026-09-21 11:00 | 263k
+
+**Focus**: TASK: pushed lab/jev-gate up to ac4dce07 (13 commits). Kept local: cadf2ed7 (memory, contains Grok Bot netbird audit retro) + e04c6ee5 (inbox). PR #3 reviewed OK, NOT merged (waiting for Moss's explicit yes). 13 held-back files shown to Moss.
+
+**Commits**:
+  4cc5afca memory: statusline-ayami gotchas (retry storm, process-group timeout, bash 3.2)
+  ce7ebd4d config: statusline-ayami, non-blocking 3-line statusline for this repo
+  e04c6ee5 inbox: handoffs, focus state and pending list for 2026-09-21
+
+
+---
+## 2026-09-21 12:59 | 804k
+
+**Focus**: TASK: Grok Bot hook PROVEN live (11:08, sent line hash+len only). PR #4 lab/jev-gate -> main open+mergeable (remote tip e53d9656). Local lab/jev-gate diverged from origin (6 local-only private commits, 6 remote-only) - plain git push is rejected; do NOT git pull+push. Grok reply to test msg c520ef6e still reply_pending. Waiting: Moss review of #4, revoke 2 old keys, push decision for local-only commits (still B3), context 178k -> /forward
+
+**Commits**:
+  05b7d0e1 config: statusline v2, prompt-cache expiry countdown + refreshInterval 60
+  2e44070b inbox: item3.patch attachment from the token-reduction handoff
+  7d40feb7 memory: eVisa/Wayama retros, learnings and session metrics (local only)
+
+
+---
+## 2026-09-21 16:09 | 861k
+
+**Focus**: TASK: eVisa n8n cleanup - Drive check blocked (connector = napa.p@ditc.co.th, wrong account); README label swap held (lines are other session uncommitted); My workflow 2 deactivate pending (n8n VM ssh timed out 13:1x). Waiting on Moss.
+
+**Commits**:
+  05b7d0e1 config: statusline v2, prompt-cache expiry countdown + refreshInterval 60
+  2e44070b inbox: item3.patch attachment from the token-reduction handoff
+  7d40feb7 memory: eVisa/Wayama retros, learnings and session metrics (local only)
+
