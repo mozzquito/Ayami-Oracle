@@ -3,7 +3,7 @@ installer: arra-oracle-skills-cli v26.8.23-alpha.2112
 origin: Nat Weerawan's brain, digitized — how one human works with AI, captured as code — Soul Brews Studio
 name: recap
 description: '[standard] v26.8.23-alpha.2112 L-SKLL | Session orientation and awareness — retro summaries, handoffs, git state, focus. Use when starting a session, after /jump, lost your place, switching context, or when user asks "now", "where are we", "what are we doing", "status", "recap". Do NOT trigger for "standup" or "morning check" (use /standup), or session mining "dig", "past sessions" (use /dig).'
-argument-hint: "[--now | --deep]"
+argument-hint: "[--now | --deep | --visual]"
 trigger: /recap
 ---
 
@@ -18,6 +18,7 @@ trigger: /recap
 /recap --quick   # Minimal: git + focus only, no file reads
 /recap --now     # Mid-session: timeline + jumps from AI memory
 /recap --now deep # Mid-session: + handoff + tracks + connections
+/recap --visual  # Rich, plus a rebuilt Excalidraw session-log board
 ```
 
 ---
@@ -140,6 +141,81 @@ bun ~/.claude/skills/recap/recap.ts
 
 Script outputs git status + focus state (~0.1s). Then LLM adds:
 - **What's next?** (2-3 options based on git state)
+
+---
+
+## VISUAL MODE (`/recap --visual`)
+
+**Opt-in only** — never run this as part of default `/recap`. It is the one recap mode
+that touches an external MCP (Excalidraw+), so it stays behind an explicit flag: default
+`/recap` must stay fast and offline-safe.
+
+Renders the session history as an Excalidraw board: a capped, **fully rebuilt** view of
+the last 25 rows of `session-metrics.md`, not a live-appended log. Rebuilding from that
+file (rather than appending during `/rrr`) means the board is a derived artifact — if
+Excalidraw is unreachable, nothing is lost, and there's no read-modify-write race between
+concurrent sessions writing to the same scene.
+
+### Step 1: Gather data (one bash call)
+
+```bash
+bun ~/.claude/skills/recap/session-board.ts 25
+```
+
+Outputs `{ repo, count, entries: [{ when, session, done }] }` — `done` truncated to ~90
+chars per entry.
+
+### Step 2: Find or create the scene
+
+Read the pointer file:
+
+```bash
+ORACLE_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+PSI=$(readlink -f "$ORACLE_ROOT/ψ" 2>/dev/null || echo "$ORACLE_ROOT/ψ")
+cat "$PSI/memory/logs/excalidraw-session-board.md" 2>/dev/null
+```
+
+- **Pointer exists** (has a `scene_url:`) → reuse that scene; skip creation.
+- **No pointer** → this is the first run for this repo. Before any scene-content write,
+  call `read_freeform_format` once (session log is a memo/log, not a diagram — use the
+  freeform tool, not `create_diagram`). Then create one scene titled
+  `"Ayami Session Log — <repo>"`.
+
+### Step 3: Rebuild the board content
+
+One card per entry: title = `<session> · <when>`, body = the truncated `done` text.
+Order oldest→newest or newest-first, your call, but be consistent across rebuilds.
+This is a full overwrite of the scene content each time — not an append — so stale
+cards from pruned/rotated sessions never accumulate.
+
+### Step 4: Update the pointer file
+
+Write (create or overwrite) `$PSI/memory/logs/excalidraw-session-board.md`:
+
+```markdown
+---
+scene_url: <url from step 2/3>
+repo: <repo>
+updated: <YYYY-MM-DD HH:MM>
+---
+```
+
+`ψ/memory/logs/` is local/ephemeral (gitignored) by design — this pointer is
+workspace-local state, not something to commit.
+
+### Step 5: Report
+
+Add one line to the recap output:
+
+```
+🗺️ Session board: <scene_url> — <count> sessions (<first_session>…<last_session>)
+```
+
+### Failure handling
+
+Any MCP error (offline, auth, rate limit) → print
+`🗺️ Session board: unavailable (<short reason>)` and continue with the rest of `/recap`
+as normal. A visual-mode failure must never block or degrade the core recap output.
 
 ---
 
