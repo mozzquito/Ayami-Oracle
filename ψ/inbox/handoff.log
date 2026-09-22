@@ -75,3 +75,14 @@
   1450c32f memory/inbox: consolidate wrap-up artifacts from 4 concurrent commit/forward/rrr sessions
   2506fcae chore: housekeeping cleanup — gitignore, move smoke.py, resolve outbox items
 
+
+---
+## 2026-09-22 19:19 | 259k
+
+**Focus**: TASK: video frame-read (eVisa German form) → found QEHAJA/QEHJA name bug → drafted MSSQL query for user to verify
+
+**Commits**:
+  ab38d74a outbox: mark skill-mirror + manual commits done, record don't-push decision
+  41fdb486 memory+skills: session-board patch, jev-skill retro, manual-html retro, scope-lesson
+  46165c10 docs: add Ayami Oracle + Moss HTML/Markdown manuals
+
