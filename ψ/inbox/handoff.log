@@ -64,3 +64,14 @@
   43f187ab memory/inbox: token-reduction retro, lesson, handoff update, metrics rows (local only)
   ec1f5b6f inbox: hook-written handoff.log entries and current focus state
 
+
+---
+## 2026-09-22 10:42 | 266k
+
+**Focus**: TASK: paused eVisa yearly report script fix (Wayama .bat/.sql) — 3 open items, see project_evisa_yearly_visa_report_script.md
+
+**Commits**:
+  3cf507c6 memory: iis-triage retro/lesson + concurrent session's cctv retro/lesson, metrics rows
+  1450c32f memory/inbox: consolidate wrap-up artifacts from 4 concurrent commit/forward/rrr sessions
+  2506fcae chore: housekeeping cleanup — gitignore, move smoke.py, resolve outbox items
+
