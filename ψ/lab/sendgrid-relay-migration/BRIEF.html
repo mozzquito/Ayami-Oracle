@@ -1,0 +1,326 @@
+<title>SendGrid Relay Brief</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<style>
+:root {
+  --bg: #f3f6f7;
+  --surface: #ffffff;
+  --ink: #14242c;
+  --muted: #55666e;
+  --line: #d3dce0;
+  --accent: #0a6c8d;
+  --accent-soft: #dcedf3;
+  --ok: #17734b;
+  --ok-soft: #dcf0e5;
+  --warn: #9a5200;
+  --warn-soft: #fbead1;
+  --bad: #ac2a22;
+  --bad-soft: #f8dedb;
+  --unk: #4b5b63;
+  --unk-soft: #e4e9ec;
+  --hatch: #b7d3de;
+  --font: "IBM Plex Sans Thai", "Noto Sans Thai", "Thonburi", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e171c;
+    --surface: #152229;
+    --ink: #e5eef1;
+    --muted: #93a6ae;
+    --line: #29393f;
+    --accent: #5cc1e2;
+    --accent-soft: #143440;
+    --ok: #59c58c;
+    --ok-soft: #14332a;
+    --warn: #f0a94f;
+    --warn-soft: #3a2c14;
+    --bad: #f3897f;
+    --bad-soft: #3b1f1d;
+    --unk: #a4b4bb;
+    --unk-soft: #212f35;
+    --hatch: #2a5566;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e171c;
+  --surface: #152229;
+  --ink: #e5eef1;
+  --muted: #93a6ae;
+  --line: #29393f;
+  --accent: #5cc1e2;
+  --accent-soft: #143440;
+  --ok: #59c58c;
+  --ok-soft: #14332a;
+  --warn: #f0a94f;
+  --warn-soft: #3a2c14;
+  --bad: #f3897f;
+  --bad-soft: #3b1f1d;
+  --unk: #a4b4bb;
+  --unk-soft: #212f35;
+  --hatch: #2a5566;
+}
+
+body { background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 15px; line-height: 1.65; }
+.page { max-width: 900px; margin-inline: auto; padding-inline: clamp(16px, 4vw, 32px); padding-block: 32px 64px; }
+
+header { padding-bottom: 20px; border-bottom: 2px solid var(--ink); }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.15; margin: 0 0 10px; font-weight: 700; text-wrap: balance; }
+.lede { margin: 0; color: var(--muted); max-width: 62ch; }
+
+h2 { font-size: 20px; line-height: 1.3; margin: 0 0 6px; font-weight: 600; text-wrap: balance; }
+section { margin-top: 40px; }
+.sub { margin: 0 0 16px; color: var(--muted); font-size: 14px; max-width: 65ch; }
+
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); margin-top: 20px; }
+.facts > div { background: var(--surface); padding: 12px 14px; }
+.facts dt { font-size: 12px; color: var(--muted); }
+.facts dd { margin: 2px 0 0; font-family: var(--mono); font-weight: 500; font-size: 17px; font-variant-numeric: tabular-nums; }
+.facts dd small { font-family: var(--font); font-size: 12px; color: var(--muted); font-weight: 400; }
+
+/* flow */
+.flow { display: flex; align-items: stretch; gap: 0; flex-wrap: wrap; margin: 0; padding: 0; list-style: none; }
+.flow li { flex: 1 1 120px; background: var(--surface); border: 1px solid var(--line); padding: 10px 12px; position: relative; font-size: 13px; }
+.flow li + li { margin-left: 22px; }
+.flow li + li::before { content: "→"; position: absolute; left: -20px; top: 50%; transform: translateY(-50%); color: var(--accent); font-family: var(--mono); font-size: 16px; }
+.flow b { display: block; font-size: 14px; }
+.flow .new { border-color: var(--accent); background: var(--accent-soft); }
+.flow code, td code, li code { font-family: var(--mono); font-size: 12px; }
+.inbound { margin-top: 10px; font-size: 13px; color: var(--muted); border-left: 3px solid var(--line); padding-left: 10px; }
+@media (max-width: 760px) {
+  .flow li + li { margin-left: 0; margin-top: 22px; flex-basis: 100%; }
+  .flow li + li::before { content: "↓"; left: 50%; top: -21px; transform: translateX(-50%); }
+}
+
+/* tables */
+.tw { overflow-x: auto; border: 1px solid var(--line); background: var(--surface); }
+table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 14px; }
+th { text-align: left; font-size: 12px; font-weight: 500; color: var(--muted); padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--bg); }
+td { padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+td.k { font-weight: 500; white-space: nowrap; }
+
+.chip { display: inline-block; font-size: 12px; font-weight: 500; padding: 1px 8px; border-radius: 3px; white-space: nowrap; }
+.chip.ok { color: var(--ok); background: var(--ok-soft); }
+.chip.warn { color: var(--warn); background: var(--warn-soft); }
+.chip.bad { color: var(--bad); background: var(--bad-soft); }
+.chip.unk { color: var(--unk); background: var(--unk-soft); }
+.chip.acc { color: var(--accent); background: var(--accent-soft); }
+
+/* flags */
+.flags { display: grid; gap: 12px; }
+.flag { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--warn); padding: 12px 14px; }
+.flag h3 { margin: 0 0 4px; font-size: 15px; }
+.flag p { margin: 0; font-size: 14px; color: var(--muted); }
+.flag p b { color: var(--ink); font-weight: 600; }
+
+/* two cols */
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.col { background: var(--surface); border: 1px solid var(--line); padding: 14px 16px; }
+.col h3 { margin: 0 0 8px; font-size: 15px; }
+.col ul { margin: 0; padding-left: 18px; }
+.col li { margin-bottom: 5px; font-size: 14px; }
+.col.no { border-top: 3px solid var(--warn); }
+.col.yes { border-top: 3px solid var(--accent); }
+
+/* checklist */
+.check { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); }
+.check li { padding: 9px 12px 9px 40px; border-bottom: 1px solid var(--line); position: relative; font-size: 14px; }
+.check li:last-child { border-bottom: 0; }
+.check li::before { content: ""; position: absolute; left: 13px; top: 14px; width: 14px; height: 14px; border: 1.5px solid var(--muted); border-radius: 3px; }
+.check li span { color: var(--muted); font-size: 13px; display: block; }
+
+/* timeline */
+.bar { display: flex; gap: 3px; margin: 8px 0 6px; }
+.seg { position: relative; height: 34px; background: var(--hatch); border-radius: 3px; overflow: hidden; }
+.seg i { position: absolute; inset: 0 auto 0 0; background: var(--accent); }
+.seg span { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); font-family: var(--mono); font-size: 11px; color: #fff; mix-blend-mode: normal; text-shadow: 0 0 3px rgba(0,0,0,.55); }
+.legend { font-size: 12px; color: var(--muted); display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.legend b { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -1px; margin-right: 5px; }
+
+footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+footer ul { margin: 6px 0 0; padding-left: 18px; }
+</style>
+
+<div class="page">
+<header>
+  <p class="eyebrow">ร่าง v0.1 · 21 ก.ย. 2026 · เตรียมก่อนพบลูกค้า</p>
+  <h1>SendGrid Relay Brief</h1>
+  <p class="lede">ย้าย SMTP relay ขาออกจาก Exchange on-prem ไป Twilio SendGrid โดย MX และ mailbox ยังอยู่ที่ Exchange ตามเดิม สรุปนี้แยกสิ่งที่ยืนยันแล้ว สิ่งที่ยังไม่รู้ และสิ่งที่ยังไม่ควรสัญญา</p>
+  <dl class="facts">
+    <div><dt>ปริมาณเป้าหมาย</dt><dd>200,000 <small>ฉบับ/วัน</small></dd></div>
+    <div><dt>เฉลี่ยรายชั่วโมง</dt><dd>≈ 8,300 <small>ฉบับ/ชม.</small></dd></div>
+    <div><dt>เทียบรายเดือน</dt><dd>≈ 6 ล้าน <small>ฉบับ/เดือน</small></dd></div>
+    <div><dt>ระยะเวลารวม (ประมาณการ)</dt><dd>6–9 <small>สัปดาห์</small></dd></div>
+  </dl>
+</header>
+
+<section>
+  <h2>เส้นทางเมลหลังย้าย</h2>
+  <p class="sub">แอปไม่ต้องแก้ ทีม server เปลี่ยนที่ Send Connector ของ Exchange จุดเดียว (ข้อเสนอ D2 แบบ 1 ยังรอมอสยืนยัน)</p>
+  <ol class="flow">
+    <li><b>แอป &gt; 3 ระบบ</b>เช่น Thai eVisa และผู้ใช้ Outlook ทุกคน</li>
+    <li class="new"><b>Exchange on-prem</b>Send Connector ตัวใหม่ (ทีม server)</li>
+    <li class="new"><b>SendGrid</b><code>smtp.sendgrid.net:587</code> STARTTLS, user <code>apikey</code></li>
+    <li><b>เซิร์ฟเวอร์รับของผู้รับ</b>หาเจอผ่าน MX เช่น Gmail, Outlook.com, โดเมนราชการ</li>
+    <li><b>กล่องเมลผู้ใช้</b>ปลายทางที่ผู้รับอ่านเมล</li>
+  </ol>
+  <p class="inbound"><b>DNS ไม่ใช่จุดที่เมลวิ่งผ่าน</b> เป็นตัวช่วยข้างทาง 3 อย่าง: (1) Exchange และ SendGrid หา IP ของกันและหา MX ของผู้รับ (2) เซิร์ฟเวอร์ผู้รับใช้ SPF, DKIM, DMARC ที่เราเพิ่มใน DNS ตรวจว่าเมลไม่ปลอม (3) bounce ไปที่ return-path ของ SendGrid ผ่าน CNAME</p>
+  <p class="inbound">เมลขาเข้าไม่เปลี่ยน: อินเทอร์เน็ต → MX → Exchange → mailbox. SendGrid ไม่มี mailbox จึงใช้เป็นทางส่งออกอย่างเดียว</p>
+</section>
+
+<section>
+  <h2>ข้อมูลที่มอสแจ้ง</h2>
+  <p class="sub">ทั้งหมดมาจากมอส ยังไม่ใช่คำยืนยันจากลูกค้า</p>
+  <div class="tw"><table>
+    <thead><tr><th>หัวข้อ</th><th>สถานะ</th><th>รายละเอียด</th></tr></thead>
+    <tbody>
+      <tr><td class="k">ขอบเขต</td><td><span class="chip ok">ระบุแล้ว</span></td><td>ทุกเมลขาออกย้ายไป SendGrid (D1 = A) ปริมาณรวมทั้งหมดต้องไม่เกิน 200k/วัน รวมเมลผู้ใช้ด้วย</td></tr>
+      <tr><td class="k">ระบบที่ส่งเมล</td><td><span class="chip ok">ระบุแล้ว</span></td><td>มากกว่า 3 ระบบ ทีม frontend/backend ดูแลฝั่งแอป และอีกทีมดูแลฝั่ง server</td></tr>
+      <tr><td class="k">แอปที่อ่าน NDR/bounce</td><td><span class="chip ok">ไม่มี</span></td><td>ปิดความเสี่ยง R1 แต่ผู้ใช้ Outlook ยังอาจคาดหวัง NDR (R12)</td></tr>
+      <tr><td class="k">ปริมาณจริง</td><td><span class="chip bad">ไม่ทราบ</span></td><td>มอสระบุว่าไม่สนใจ แต่ปริมาณจริงกำหนดขนาดแผนและตาราง warm-up (R13)</td></tr>
+      <tr><td class="k">เวอร์ชัน Exchange</td><td><span class="chip unk">ไม่ทราบ</span></td><td>ไม่ขวางแผน แต่ทีม server ต้องรู้ตอนทดสอบคำสั่ง</td></tr>
+      <tr><td class="k">DNS</td><td><span class="chip unk">ไม่ชัด</span></td><td>ผู้ให้บริการและผู้ดูแลยังไม่ชัด ต้องถามซ้ำ ถ้าอยู่บน Cloudflare ต้องตั้ง CNAME เป็น DNS-only</td></tr>
+      <tr><td class="k">เครือข่าย</td><td><span class="chip unk">ยังไม่ทราบ</span></td><td>ต้องทดสอบพอร์ต 587 ไปที่ <code>smtp.sendgrid.net</code> ก่อน</td></tr>
+      <tr><td class="k">Log</td><td><span class="chip warn">ต้องแก้แผน</span></td><td>มอสจะใช้ SendGrid API แต่เก็บย้อนหลังได้ราว 30 วัน ไม่พอสำหรับ TOR ≥ 90 วัน</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2>สามเรื่องที่ควรรู้ก่อนเข้าห้อง</h2>
+  <p class="sub">จุดที่คำตอบเดิมยังไม่พอ</p>
+  <div class="flags">
+    <div class="flag">
+      <h3>Log ผ่าน API ไม่พอสำหรับ ≥ 90 วัน</h3>
+      <p>API ที่ดึง log ค้นได้เฉพาะช่วงที่ SendGrid เก็บเอง (สูงสุดราว 30 วันแม้แผนจ่ายเงิน) <b>ถ้า TOR ต้องการ 90 วันขึ้นไป ต้องรับ Event Webhook แล้วเก็บลง DB ของเราเอง</b> POC อยู่ที่ <code>ψ/lab/sendgrid-log-poc/</code> แต่ทดสอบระดับ 50–100 ฉบับ ยังไม่เคยทดสอบที่ 200k/วัน</p>
+    </div>
+    <div class="flag">
+      <h3>ปริมาณจริงที่ไม่ทราบมีผลต่อแผน</h3>
+      <p>200k เป็นตัวเลขเป้าหมาย ไม่ใช่ปริมาณที่วัดได้ <b>ทีม server ดึงจาก Exchange message tracking 30 วันได้เอง</b> โดยไม่ต้องรอลูกค้า ถ้าไม่ดึง ต้องยอมรับความเสี่ยงชนเพดานแล้วเมลค้าง</p>
+    </div>
+    <div class="flag">
+      <h3>ผู้ใช้ Outlook อาจไม่ได้รับ NDR <span class="chip warn">ยังไม่ verify</span></h3>
+      <p>เมื่อรวมเมลผู้ใช้ตาม D1 = A ถ้าพิมพ์ที่อยู่ผิด Exchange ปัจจุบันส่ง NDR กลับถึงกล่องผู้ใช้ แต่ SendGrid ตามที่จำได้จะรับเมลแล้วบันทึก bounce เป็น event <b>ควรแจ้งลูกค้าล่วงหน้าและยืนยันพฤติกรรมกับ SendGrid</b></p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>การตัดสินใจที่ยังค้าง</h2>
+  <div class="tw"><table>
+    <thead><tr><th>รหัส</th><th>คำถาม</th><th>สถานะ</th></tr></thead>
+    <tbody>
+      <tr><td class="k">D1</td><td>ย้ายเมลขาออกทั้งหมดหรือเฉพาะแอป</td><td><span class="chip ok">A ทั้งหมด</span></td></tr>
+      <tr><td class="k">D2</td><td>เส้นทาง: (1) แอป → Exchange → SendGrid หรือ (2) แอปต่อ SendGrid ตรง</td><td><span class="chip acc">แนะนำ (1) รอยืนยัน</span></td></tr>
+      <tr><td class="k">D3</td><td>ค่อยๆ เพิ่มปริมาณตามโดเมนผู้รับ หรือตามแอป (เมื่อใช้ (1) ทำแบบโดเมนผู้รับผ่าน address space ได้)</td><td><span class="chip unk">เปิด</span></td></tr>
+      <tr><td class="k">D4</td><td>แผน SendGrid ที่รับ 200k/วัน และจำนวน Dedicated IP (ต้องคุย sales)</td><td><span class="chip unk">เปิด</span></td></tr>
+      <tr><td class="k">D5</td><td>แยก subuser ตามระบบหรือไม่</td><td><span class="chip unk">เปิด</span></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2>สิ่งที่ต้องขอจากลูกค้า</h2>
+  <ul class="check">
+    <li>ผู้ให้บริการ DNS และผู้ดูแล<span>ต้องเพิ่ม CNAME ของ Domain Authentication และรวม SPF (SPF มีได้ record เดียวต่อ domain)</span></li>
+    <li>รายชื่อแอปทั้งหมดและเจ้าของแต่ละระบบ<span>รวมค่า From address และ domain ที่ใช้ส่ง</span></li>
+    <li>เวอร์ชัน Exchange, ผู้มีสิทธิ์แก้ Send Connector, change window และ lab สำหรับซ้อม</li>
+    <li>ผลทดสอบพอร์ต 587 จากเครือข่ายจริง</li>
+    <li>ข้อกำหนดข้อมูลส่วนบุคคลและความลับราชการ<span>เมลจะวิ่งผ่านระบบ SendGrid ในต่างประเทศ ยังไม่ได้พิจารณาเรื่อง PDPA ในเอกสารใดเลย</span></li>
+    <li>ข้อกำหนด log retention จริง และผู้รับผิดชอบเก็บ log</li>
+    <li>ใครเป็นผู้ config จริง และเราเข้าไปช่วยหรือดูผ่านหน้าจอได้ไหม<span>ถ้าลูกค้าทำเอง ต้องส่งมอบคู่มือ (ยังไม่ได้เขียน HANDOVER-KIT)</span></li>
+  </ul>
+</section>
+
+<section>
+  <h2>บอกลูกค้า และยังไม่ควรสัญญา</h2>
+  <div class="cols">
+    <div class="col yes">
+      <h3>บอกให้ชัดตั้งแต่ต้น</h3>
+      <ul>
+        <li>SendGrid ไม่ใช่ mailbox hosting ใช้ส่งออกอย่างเดียว</li>
+        <li>ต้องมี Dedicated IP และ warm-up จึงไม่ใช่สลับทีเดียวในวันเดียว</li>
+        <li>พฤติกรรมเปลี่ยน: bounce ไปที่ SendGrid, มี suppression list, ต้องปิด click/open tracking สำหรับเมลระบบ</li>
+        <li>ต้องมี DNS change และรอ propagation</li>
+        <li>ระยะเวลา 6–9 สัปดาห์ เป็นประมาณการ ไม่ใช่คำสัญญา</li>
+      </ul>
+    </div>
+    <div class="col no">
+      <h3>ยังไม่ควรสัญญา <span class="chip warn">ยังไม่ verify</span></h3>
+      <ul>
+        <li>แผนที่รับ 200k/วัน และ ≥ 10,000/ชม. (คาดว่าเกินแผนมาตรฐาน ต้องได้ยืนยันเป็นลายลักษณ์อักษร)</li>
+        <li>ตาราง warm-up และจำนวน Dedicated IP</li>
+        <li>คำสั่ง Exchange ใน runbook ยังไม่เคยรันจริง และยังไม่ยืนยันว่าเวอร์ชันของลูกค้าทำได้ตามที่เขียน</li>
+        <li>อัตราส่งถึง inbox ตอน POC Gmail ทิ้งเมลเงียบๆ และอีกโดเมนเข้า Junk</li>
+        <li>ราคา ยังไม่มีข้อมูล</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>ความเสี่ยงหลัก</h2>
+  <div class="tw"><table>
+    <thead><tr><th>รหัส</th><th>ความเสี่ยง</th><th>มาตรการ</th></tr></thead>
+    <tbody>
+      <tr><td class="k">R13</td><td>ไม่ทราบปริมาณจริง เลือกแผนและ warm-up ไม่ถูก</td><td>ดึงจาก Exchange message tracking ก่อนตกลงแผน</td></tr>
+      <tr><td class="k">R12</td><td>ผู้ใช้ไม่ได้รับ NDR เมื่อพิมพ์ที่อยู่ผิด</td><td>แจ้งผู้ใช้ก่อนย้าย ยืนยันพฤติกรรมกับ SendGrid</td></tr>
+      <tr><td class="k">R14</td><td>เมลถึงโดเมนของเราเอง อาจวนออกไป SendGrid แล้ววนกลับ MX ของ Exchange <span class="chip warn">ยังไม่ verify</span></td><td>ตั้งให้โดเมนตัวเองส่งภายในเสมอ ไม่ให้ address space ของ Send Connector ครอบโดเมนตัวเอง และทดสอบใน lab ก่อน</td></tr>
+      <tr><td class="k">R5</td><td>ปริมาณกระโดดโดยไม่ warm-up ถูก throttle หรือเข้า spam</td><td>ทำตามตารางที่ SendGrid ยืนยัน ห้ามข้ามขั้น</td></tr>
+      <tr><td class="k">R6</td><td>เกิน rate limit ของแผน (POC บน trial ส่งได้ 52 จาก 100 ฉบับ)</td><td>ยืนยันแผนใน Phase 0 และเฝ้า 429/deferral</td></tr>
+      <tr><td class="k">R9</td><td>เมลหายเงียบที่ปลายทาง</td><td>ทดสอบหลายผู้ให้บริการ ดูกล่อง inbox จริง ไม่ดูแค่สถานะ delivered</td></tr>
+      <tr><td class="k">R4</td><td>SPF ซ้ำหรือเกิน 10 lookups</td><td>รวมกับ record เดิม นับ lookup</td></tr>
+      <tr><td class="k">R3</td><td>Click/Open tracking เขียนลิงก์ในเมลระบบใหม่</td><td>ปิดตั้งแต่ Phase 1</td></tr>
+      <tr><td class="k">R10</td><td>API key รั่ว (เคยวางในแชต 2026-08-22 และไม่ได้ rotate)</td><td>key จำกัดสิทธิ์ส่งเมล เก็บใน secret store และ revoke key เก่า</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2>ลำดับงานและระยะเวลา</h2>
+  <p class="sub">ประมาณการของเรา ยังไม่ได้อ้างอิงเอกสาร SendGrid ช่วง warm-up เป็นตัวกำหนดระยะเวลามากที่สุด แต่ละช่วงต้องผ่านเกณฑ์ go/no-go ก่อนไปต่อ</p>
+  <div class="bar" role="img" aria-label="Phase 0 ถึง 4 รวม 6 ถึง 9 สัปดาห์">
+    <div class="seg" style="flex:1"><i style="width:100%"></i><span>P0</span></div>
+    <div class="seg" style="flex:1"><i style="width:100%"></i><span>P1</span></div>
+    <div class="seg" style="flex:1"><i style="width:100%"></i><span>P2</span></div>
+    <div class="seg" style="flex:4"><i style="width:50%"></i><span>P3</span></div>
+    <div class="seg" style="flex:2"><i style="width:50%"></i><span>P4</span></div>
+  </div>
+  <div class="legend"><span><b style="background:var(--accent)"></b>ระยะต่ำสุด (6 สัปดาห์)</span><span><b style="background:var(--hatch)"></b>อาจขยายถึง 9 สัปดาห์</span></div>
+  <div class="tw"><table>
+    <thead><tr><th>ช่วง</th><th>งาน</th><th>เวลา</th><th>ต้องผ่านก่อนไปต่อ</th></tr></thead>
+    <tbody>
+      <tr><td class="k">P0</td><td>เตรียมการ: ปิด D1–D5, กรอก inventory, ยืนยันแผนกับ SendGrid</td><td>1 สัปดาห์</td><td>ได้ยืนยันแผนจาก SendGrid และ inventory ครบ</td></tr>
+      <tr><td class="k">P1</td><td>ตั้งค่า SendGrid: Domain Authentication, Dedicated IP, webhook, ทดสอบ deliverability</td><td>1 สัปดาห์</td><td>SPF/DKIM/DMARC ผ่านทุก domain และเมลทดสอบถึง inbox</td></tr>
+      <tr><td class="k">P2</td><td>นำร่องประมาณ 5% ของปริมาณ</td><td>1 สัปดาห์</td><td>bounce ต่ำ ไม่มี spam complaint ยอดตรงกับ Exchange</td></tr>
+      <tr><td class="k">P3</td><td>ขยายปริมาณตามตาราง warm-up จนถึง 100%</td><td>2–4 สัปดาห์ <span class="chip warn">ยังไม่ verify</span></td><td>ปริมาณและ deliverability คงที่</td></tr>
+      <tr><td class="k">P4</td><td>ตัดจบ เก็บเส้นทางเดิมไว้ช่วงสังเกตการณ์</td><td>1–2 สัปดาห์</td><td>ไม่มี incident</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2>งานก่อนวันพบ</h2>
+  <ul class="check">
+    <li>ทีม server ทดสอบพอร์ต 587 และดึงปริมาณจาก message tracking<span>ทำได้ทันที ไม่มีความเสี่ยง</span></li>
+    <li>ตอบ D2–D5 และยืนยันผู้ให้บริการ DNS</li>
+    <li>ตรวจข้อที่ยังไม่ verify กับเอกสารและ sales ของ SendGrid<span>แผนที่รับ 200k/วัน, ตาราง warm-up, พฤติกรรม NDR ต้องได้รับอนุญาตให้ค้นเว็บก่อน</span></li>
+    <li>revoke SendGrid API key เก่าที่เคยวางในแชต</li>
+    <li>ซ้อมคำสั่ง Exchange และ rollback บน lab หรือนอกเวลา</li>
+    <li>ให้ zcode และ agy รีวิว runbook ด้านความปลอดภัยและโครงสร้าง ตามที่ CLAUDE.md กำหนดสำหรับงาน infra</li>
+  </ul>
+</section>
+
+<footer>
+  <p>เอกสารที่เกี่ยวข้อง (ใน repo <code>ayami-oracle</code>):</p>
+  <ul>
+    <li><code>ψ/lab/sendgrid-relay-migration/RUNBOOK.md</code> ร่าง v0.1 ยังไม่ commit และยังไม่ได้รีวิวโดย zcode/agy</li>
+    <li><code>ψ/lab/sendgrid-log-poc/</code> POC เก็บ log ผ่าน Event Webhook</li>
+    <li><code>~/Downloads/เทียบ TOR กับWYM (1) - ตรวจแก้ไข.xlsx</code> ผลเทียบ TOR ที่ตรวจแก้แล้ว</li>
+  </ul>
+  <p>จัดทำโดย Ayami Oracle (AI) จากข้อมูลที่มอสแจ้งในเซสชัน 21 ก.ย. 2026</p>
+</footer>
+</div>

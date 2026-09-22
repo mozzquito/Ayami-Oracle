@@ -53,3 +53,14 @@
   2e44070b inbox: item3.patch attachment from the token-reduction handoff
   7d40feb7 memory: eVisa/Wayama retros, learnings and session metrics (local only)
 
+
+---
+## 2026-09-22 09:18 | 415k
+
+**Focus**: TASK: Excalidraw+ MCP test done - scene SDLC Gate Flow rendered OK (collection claude-test)
+
+**Commits**:
+  e7dfeddd memory/inbox: evisa n8n upload-404 + folder-ID swap retro, lesson, handoff, outbox (local only)
+  43f187ab memory/inbox: token-reduction retro, lesson, handoff update, metrics rows (local only)
+  ec1f5b6f inbox: hook-written handoff.log entries and current focus state
+
