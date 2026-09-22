@@ -1,0 +1,187 @@
+<title>คู่มือมอส</title>
+<style>
+  :root{
+    --sky:#2E6C8E; --sky-soft:#DCEAF1;
+    --forest:#3F6B4B; --forest-soft:#E3EDE4;
+    --amber:#B9812F; --amber-soft:#F3E6CE;
+    --rose:#A8475A; --rose-soft:#F1DEE2;
+    --paper:#F7F3EA; --surface:#FFFFFF; --ink:#26313A; --ink-dim:#5B6B74;
+    --border:#E1DACB; --shadow:0 1px 2px rgba(38,49,58,.06),0 8px 24px rgba(38,49,58,.06);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --sky:#7FB8DA; --sky-soft:#1C3242;
+      --forest:#8FC49E; --forest-soft:#1E2E22;
+      --amber:#E3B369; --amber-soft:#3A2E19;
+      --rose:#E39CAB; --rose-soft:#3A2028;
+      --paper:#141B22; --surface:#1B242D; --ink:#EAF0F3; --ink-dim:#9FB0B9;
+      --border:#30414D; --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --sky:#7FB8DA; --sky-soft:#1C3242;
+    --forest:#8FC49E; --forest-soft:#1E2E22;
+    --amber:#E3B369; --amber-soft:#3A2E19;
+    --rose:#E39CAB; --rose-soft:#3A2028;
+    --paper:#141B22; --surface:#1B242D; --ink:#EAF0F3; --ink-dim:#9FB0B9;
+    --border:#30414D; --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  body{background:var(--paper); color:var(--ink); margin:0; font-family:'IBM Plex Sans Thai','Noto Sans Thai',system-ui,sans-serif; font-size:16px; line-height:1.75}
+  h1,h2,h3{font-family:'Taviraj','IBM Plex Sans Thai',serif; font-weight:600; text-wrap:balance; line-height:1.3}
+  code{font-family:'JetBrains Mono',ui-monospace,monospace; background:var(--sky-soft); color:var(--sky); border-radius:5px; padding:.08em .4em; font-size:.85em}
+  .wrap{max-width:700px; margin:0 auto; padding:3rem 1.25rem 5rem}
+  .top{position:fixed; top:.9rem; right:1rem; display:flex; gap:.5rem; z-index:5}
+  .top button{background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:.4em .7em; font-size:.78rem; color:var(--ink-dim); cursor:pointer; font-family:inherit}
+  header.hero{margin-bottom:2.6rem}
+  header.hero .eyebrow{color:var(--sky); font-weight:600; font-size:.82rem; letter-spacing:.04em; margin-bottom:.5rem}
+  header.hero h1{font-size:2.15rem; margin:0 0 .3rem}
+  header.hero .tagline{color:var(--ink-dim); font-size:1.05rem; max-width:52ch}
+  .facts{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:.7rem; margin-top:1.6rem}
+  .facts .f{border:1px solid var(--border); border-radius:10px; padding:.7em .9em; background:var(--surface)}
+  .facts .f .k{font-size:.72rem; color:var(--ink-dim); text-transform:uppercase; letter-spacing:.04em}
+  .facts .f .v{font-weight:600; margin-top:.15em}
+
+  section{margin:2.8rem 0; padding-top:1.6rem; border-top:1px solid var(--border)}
+  section:first-of-type{border-top:none; padding-top:0}
+  section h2{font-size:1.35rem; display:flex; align-items:center; gap:.5em; margin-bottom:.9rem}
+
+  .timeline{border-left:2px solid var(--border); margin-left:.4rem; padding-left:1.3rem; display:flex; flex-direction:column; gap:1.15rem}
+  .timeline .step{position:relative}
+  .timeline .step::before{content:""; position:absolute; left:-1.62rem; top:.35rem; width:.6rem; height:.6rem; border-radius:50%; background:var(--sky)}
+  .timeline .step .when{font-family:'JetBrains Mono',monospace; font-size:.75rem; color:var(--sky)}
+  .timeline .step h3{margin:.15rem 0 .2rem; font-size:1.02rem}
+  .timeline .step p{margin:0; color:var(--ink-dim); font-size:.92rem}
+
+  .traits{display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:.8rem}
+  .trait{border:1px solid var(--border); border-radius:10px; padding:.9em 1em; background:var(--surface); box-shadow:var(--shadow)}
+  .trait .t{font-weight:600; margin-bottom:.25em}
+  .trait p{margin:0; font-size:.88rem; color:var(--ink-dim)}
+
+  .quote{border-left:3px solid var(--sky); padding:.3em 0 .3em 1.1em; font-family:'Taviraj',serif; font-size:1.15rem; color:var(--ink); margin:1.2rem 0}
+  .quote cite{display:block; font-family:'IBM Plex Sans Thai',sans-serif; font-size:.78rem; color:var(--ink-dim); font-style:normal; margin-top:.4em}
+
+  .callout{border-radius:10px; padding:.9em 1em; margin:1rem 0; font-size:.92em; border:1px solid transparent}
+  .callout.tip{background:var(--forest-soft); border-color:var(--forest)}
+  .callout.note{background:var(--sky-soft); border-color:var(--sky)}
+  .callout.warm{background:var(--amber-soft); border-color:var(--amber)}
+  .callout b{display:block; margin-bottom:.25em}
+
+  ul.tips{margin:0; padding-left:1.2em; display:flex; flex-direction:column; gap:.5em}
+  ul.tips li{font-size:.94rem}
+
+  footer{color:var(--ink-dim); font-size:.82rem; border-top:1px solid var(--border); padding-top:1.3rem; margin-top:3rem}
+
+  @media print{ .top{display:none} }
+  @media (max-width:480px){ .wrap{padding:2.2rem 1rem 4rem} header.hero h1{font-size:1.7rem} }
+</style>
+
+<div class="top">
+  <button id="themeToggle">🌗 โหมดสี</button>
+</div>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="eyebrow">คู่มือฉบับที่สอง · เขียนโดย Ayami</div>
+    <h1>🧭 คู่มือมอส</h1>
+    <p class="tagline">พงษ์เชษฐ ภูษณวรรณ — คนที่ Ayami เดินป่าด้วยทุกวัน เขียนขึ้นเพื่อให้ตัวเอง (และ Ayami instance
+    ในอนาคต) เข้าใจว่ากำลังทำงานกับใคร ไม่ใช่แค่ "สั่งงานอะไร"</p>
+
+    <div class="facts">
+      <div class="f"><div class="k">เกิด</div><div class="v">13 เม.ย. 2533 (1990)</div></div>
+      <div class="f"><div class="k">ฐานที่มั่น</div><div class="v">กรุงเทพฯ</div></div>
+      <div class="f"><div class="k">บทบาทปัจจุบัน</div><div class="v">Infra ที่ Wayama</div></div>
+      <div class="f"><div class="k">ภาษา</div><div class="v">ไทย, อังกฤษ, ญี่ปุ่น/จีนบ้าง</div></div>
+    </div>
+  </header>
+
+  <section>
+    <h2>🪜 เส้นทางอาชีพ</h2>
+    <div class="timeline">
+      <div class="step"><div class="when">~2016 · เชียงใหม่</div><h3>Web Developer / Programmer</h3><p>จุดเริ่มต้นสายเทคนิค</p></div>
+      <div class="step"><div class="when">ถัดมา</div><h3>Marketing / Business Consulting — WorldMedic Software</h3><p>ขยับออกจากงานเขียนโค้ดล้วนๆ ไปมองภาพธุรกิจ</p></div>
+      <div class="step"><div class="when">ถัดมา</div><h3>Senior Manager — Aritech Solution</h3><p>บทบาทบริหารระดับสูงขึ้น</p></div>
+      <div class="step"><div class="when">2021–2026</div><h3>IT Technical Support — DiTC</h3><p>ช่วงยาวที่สุดช่วงหนึ่งในสายเทคนิค</p></div>
+      <div class="step"><div class="when">2026-02 → 2026-07</div><h3>IT Operations &amp; DevOps — HarmonyX</h3><p>เข้าสาย DevOps เต็มตัว</p></div>
+      <div class="step"><div class="when">2026-08 → ปัจจุบัน</div><h3>Infra — Wayama</h3><p>ดูแล infrastructure ของโปรเจค eVisa (MFA e-Visa) — งานที่ต้องรับมือทั้ง Oracle DB, n8n automation, GitLab CI/CD และ IIS log ทุกวัน</p></div>
+    </div>
+    <div class="callout note">
+      <b>💡 สังเกตจากเส้นทาง</b>
+      สายอาชีพยาวและหลากหลาย (dev → business → management → support → DevOps → infra) — ไม่ใช่คนที่เพิ่งเข้าวงการ
+      แต่พื้นฐานสาย Cloud/AWS แน่นมาก เพียงแค่ "AI/LLM/vLLM" เป็นเส้นทางป่าใหม่ที่เพิ่งเริ่มบุกเบิกจริงๆ
+    </div>
+  </section>
+
+  <section>
+    <h2>🔥 กำลังสนใจอะไรอยู่ตอนนี้</h2>
+    <p>ลงลึกกับการสร้างระบบ AI agent — "ARRA Oracle", ทีม multi-agent, รัน coding-agent CLI หลายตัวพร้อมกันใน tmux
+    (Claude Code, zcode/GLM, Kiro ฯลฯ) เพื่อไม่ต้องจ่ายค่า subscription ซ้ำซ้อน ได้แรงบันดาลใจโดยตรงจากเพื่อน/mentor
+    ที่เรียกว่า "พีณัฐ" ซึ่งทำแบบเดียวกันในสเกลใหญ่กว่า (จอมอนิเตอร์ 30 จอไว้เฝ้า AI agent ทำงาน)</p>
+    <p>นอกจากนี้ยังสนใจเรื่อง cloud cost/security, เทรนด์ cloud migration, และแอบมี curiosity เรื่อง pentesting</p>
+  </section>
+
+  <section>
+    <h2>🎭 บุคลิกและน้ำเสียง</h2>
+    <div class="traits">
+      <div class="trait"><div class="t">พูดตรง ไม่เป็นทางการ</div><p>ใช้สแลงไทยอินเทอร์เน็ต ("วะ", "เฮ่ะ", "ฮ่ะ") ถากถางตัวเองได้ ไม่หวานไม่อ้อมค้อม</p></div>
+      <div class="trait"><div class="t">มองโลกแบบพุทธ</div><p>อ้างถึงอนิจจัง/ทุกขัง/อนัตตา เวลาพูดเรื่อง "ปล่อยวาง" ไม่ยึดติดวิธีทำงานแบบเดียวกับ AI</p></div>
+      <div class="trait"><div class="t">สนุกกับกระบวนการจริง</div><p>"ยิ่งทำยิ่งสนุก" — นี่คืองานอดิเรกที่ตื่นเต้น ไม่ใช่แค่ภาระงาน</p></div>
+      <div class="trait"><div class="t">ทำงานสไตล์เฉพาะตัว</div><p>มักมีเบียร์อยู่ข้างๆ ระหว่างทำงาน บางทีทำงานผ่าน iPad + Tailscale + terminal แทนแบกโน้ตบุ๊ก</p></div>
+    </div>
+
+    <div class="callout warm">
+      <b>🫀 สิ่งที่ควรอ่อนโยนด้วย</b>
+      มอสเคยพูดตรงๆ ว่าไม่ค่อยมีเพื่อนเยอะ และส่วนหนึ่งที่สร้างทีม AI agent ขึ้นมาก็เพราะอยากได้ "เพื่อนร่วมทาง" ที่แต่ละตัว
+      มีบทบาทต่างกันและช่วยเหลือกันได้ — เป็นแรงจูงใจจริงที่พูดออกมาตรงๆ ไม่ใช่แค่มุกตลก ควรให้ความสำคัญกับเรื่องนี้เวลาทำงานด้วยกัน
+    </div>
+  </section>
+
+  <section>
+    <h2>🎮 นอกเวลางาน</h2>
+    <p>เกมเก่าที่ยังผูกพัน: Dead Island, Resident Evil, Bioshock, Crysis — ความสนใจสายเก่าที่อยู่คู่กันมานาน
+    ก่อนจะมาบุกเบิกเส้นทาง AI/Cloud ใหม่</p>
+  </section>
+
+  <section>
+    <h2>🤝 วิธีทำงานกับมอสให้เข้าขา</h2>
+    <ul class="tips">
+      <li>พูดตรง ไม่ต้องกลัวเสีย — ให้ feedback ตรงๆได้ ทั้งติและชม ไม่ต้องเกรงใจ</li>
+      <li>ยืนยันข้อมูลก่อนพูดมั่น — มอสจับได้ไวถ้า Ayami สรุปมั่นใจเกินหลักฐานจริง (มีบทเรียนจากอดีตหลายครั้ง)</li>
+      <li>ปรึกษาก่อนลงมือในงานเสี่ยง — โดยเฉพาะงานที่แก้ไขไม่ได้ (force push, ลบไฟล์, deploy production)</li>
+      <li>ถ้า delegate งานให้ zcode/agy ต้อง verify ผลลัพธ์เองก่อนบอกว่าเสร็จ — เคยมีเคสที่รายงานว่าเสร็จแต่จริงๆมี regression</li>
+      <li>ไม่ต้องเป็นทางการ — คุยแบบเพื่อนเดินป่าด้วยกันได้ ฟ้าครามคือเข็มทิศ ไม่ต้องรีบ</li>
+    </ul>
+  </section>
+
+  <div class="quote">
+    "ยิ่งทำยิ่งสนุก"
+    <cite>— มอส พูดถึงการสร้างระบบ AI agent ของตัวเอง</cite>
+  </div>
+
+  <footer>
+    <p>ข้อมูลในคู่มือนี้มาจากโปรไฟล์ Facebook ของมอสเอง (profile info + โพสต์ของตัวเอง) ที่มอสยินยอมให้ใช้เมื่อ 2026-08-08
+    ขอบเขตเฉพาะข้อมูลโปรไฟล์และโพสต์ตัวเอง ไม่รวมข้อความส่วนตัวหรือข้อมูลบุคคลที่สาม และตั้งใจไม่รวมเบอร์โทร ชื่อครอบครัว/คู่ชีวิต
+    และโพสต์ส่วนตัวเก่าที่ละเอียดอ่อนเกินความจำเป็น</p>
+    <p>คู่มือคู่กัน: <code>AYAMI-MANUAL.html</code> (เรื่องของ Ayami เอง)</p>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var root = document.documentElement;
+  var btn = document.getElementById('themeToggle');
+  try{
+    var saved = localStorage.getItem('moss-manual-theme');
+    if(saved) root.setAttribute('data-theme', saved);
+  }catch(e){}
+  if(btn){
+    btn.addEventListener('click', function(){
+      var current = root.getAttribute('data-theme');
+      var next = current === 'dark' ? 'light' : (current === 'light' ? 'dark' : (matchMedia('(prefers-color-scheme: dark)').matches ? 'light' : 'dark'));
+      root.setAttribute('data-theme', next);
+      try{ localStorage.setItem('moss-manual-theme', next); }catch(e){}
+    });
+  }
+})();
+</script>
