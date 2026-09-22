@@ -147,6 +147,28 @@ All outputs should go in `ψ-context/` or `ψ-drafts/` (gitignored) when possibl
 
 ---
 
+## Design Docs → Excalidraw, Not Markdown
+
+When producing a **design flow, architecture diagram, memo, or working note for a design decision**,
+create it in **Excalidraw+** (`mcp__excalidraw-plus__*`) instead of writing a markdown file in
+`ψ/active/` or `ψ/writing/`.
+
+| Content | Tool |
+|---------|------|
+| Flowcharts, architecture, dependency graphs, swimlanes | `create_diagram` (read `read_diagram_format` first) |
+| Freeform notes, memos, annotations, wireframes | `edit_scene_content` (read `read_freeform_format` first) |
+| Slide-style walkthroughs | `create_slide` (read `read_presentation_format` first) |
+
+- Link the resulting scene URL back into the relevant ψ/ markdown (issue, retro, handoff) — don't
+  duplicate the content as text there.
+- This does **not** replace narrative docs (retros, lessons, handoffs) — those stay markdown.
+  It applies specifically to the *shape* of a design: flows, diagrams, sketch-level memos.
+
+**Why**: keeps design thinking visual/spatial instead of markdown sprawl; markdown carries the
+narrative and decisions, Excalidraw carries the shape.
+
+---
+
 ## Oracle Philosophy
 
 > "The Oracle Keeps the Human Human"
