@@ -20,6 +20,24 @@ const metricsFile = join(psi, "memory", "learnings", "session-metrics.md");
 
 type Entry = { when: string; session: string; done: string };
 
+// Cut at the first clause break (; or .) when that lands within range, else at
+// the last word boundary before maxLen — never mid-word, so cards read as
+// whole phrases instead of chopped fragments like "requirements (c".
+function truncateClause(s: string, maxLen = 100): string {
+  const semi = s.indexOf(";");
+  const period = s.indexOf(". ");
+  let stop = -1;
+  if (semi !== -1) stop = semi;
+  if (period !== -1 && (stop === -1 || period < stop)) stop = period;
+  let cut = stop !== -1 && stop <= maxLen * 1.5 ? s.slice(0, stop) : s;
+  if (cut.length > maxLen) {
+    const lastSpace = cut.lastIndexOf(" ", maxLen);
+    cut = cut.slice(0, lastSpace > 0 ? lastSpace : maxLen);
+  }
+  cut = cut.trim();
+  return cut.length < s.trim().length ? `${cut}…` : cut;
+}
+
 let entries: Entry[] = [];
 
 if (existsSync(metricsFile)) {
@@ -36,7 +54,7 @@ if (existsSync(metricsFile)) {
     // split("|") on a leading/trailing-pipe row yields ["", when, session, done, ..., ""]
     const when = cols[1] ?? "";
     const session = cols[2] ?? "";
-    const done = (cols[3] ?? "").slice(0, 90);
+    const done = truncateClause(cols[3] ?? "", 100);
     if (when && session) entries.push({ when, session, done });
   }
 }

@@ -195,6 +195,8 @@ Write (create or overwrite) `$PSI/memory/logs/excalidraw-session-board.md`:
 ```markdown
 ---
 scene_url: <url from step 2/3>
+scene_id: <scene id>
+collection_id: <collection id used>
 repo: <repo>
 updated: <YYYY-MM-DD HH:MM>
 ---
