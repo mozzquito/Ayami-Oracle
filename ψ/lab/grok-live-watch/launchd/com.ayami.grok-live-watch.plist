@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.ayami.grok-live-watch</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/phongcheatphus/ayami-oracle/ψ/lab/grok-live-watch/scripts/run-poll.sh</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/phongcheatphus/ayami-oracle/ψ/lab/grok-live-watch</string>
+
+  <!-- Every 15 min: short enough to catch a ~1-1.5% TP/SL move on a ~15min-timeframe
+       strategy before it's stale news, long enough to stay well under Binance TH's rate
+       limits even with the userTrades call per held symbol (max ~2 concurrent per
+       snapshot). Adjust here if the live cadence turns out wrong. -->
+  <key>StartInterval</key>
+  <integer>900</integer>
+
+  <key>StandardOutPath</key>
+  <string>/Users/phongcheatphus/ayami-oracle/ψ/lab/grok-live-watch/logs/poll.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/phongcheatphus/ayami-oracle/ψ/lab/grok-live-watch/logs/poll.log</string>
+
+  <key>RunAtLoad</key>
+  <false/>
+</dict>
+</plist>
