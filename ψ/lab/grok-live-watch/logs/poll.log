@@ -1,3 +1,11 @@
 run: no changes
 run: no changes
 run: no changes
+run: no changes
+🔵 New fill TRXUSDT: SELL qty=28.60000000 @ 0.34370000
+🟢 Opened DOGEUSDT: qty=100.499000 @ ~0.099860
+3 open positions, above the snapshot's max concurrent ~2 — either the live strategy has changed or the snapshot is stale.
+3 open positions, above the snapshot's max concurrent ~2 — either the live strategy has changed or the snapshot is stale.
+3 open positions, above the snapshot's max concurrent ~2 — either the live strategy has changed or the snapshot is stale.
+3 open positions, above the snapshot's max concurrent ~2 — either the live strategy has changed or the snapshot is stale.
+TRXUSDT: -1.55%, well past the snapshot's ~-1.0% SL without having closed — worth a look.
