@@ -1,0 +1,9 @@
+[project]
+name = "jev-gate"
+version = "0.1.0"
+description = "Advisory prompt-injection screen for external content (TypeSafe Jev)"
+requires-python = ">=3.10"
+dependencies = ["typesafe-sdk>=0.7"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

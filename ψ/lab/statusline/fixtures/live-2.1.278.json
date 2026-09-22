@@ -1,0 +1,79 @@
+{
+  "session_id": "00000000-0000-0000-0000-000000000000",
+  "transcript_path": "/redacted/transcript.jsonl",
+  "cwd": "/redacted/repo",
+  "scratchpad_dir": "/redacted/scratch",
+  "prompt_id": "00000000-0000-0000-0000-000000000001",
+  "effort": {
+    "level": "high"
+  },
+  "model": {
+    "id": "claude-sonnet-5",
+    "display_name": "Sonnet 5"
+  },
+  "workspace": {
+    "current_dir": "/redacted/repo",
+    "project_dir": "/redacted/repo",
+    "added_dirs": [],
+    "repo": {
+      "host": "github.com",
+      "owner": "owner",
+      "name": "repo"
+    }
+  },
+  "version": "2.1.278",
+  "output_style": {
+    "name": "default"
+  },
+  "cost": {
+    "total_cost_usd": 1.5518359499999999,
+    "total_duration_ms": 725087,
+    "total_api_duration_ms": 589192,
+    "total_lines_added": 274,
+    "total_lines_removed": 0
+  },
+  "context_window": {
+    "total_input_tokens": 148795,
+    "total_output_tokens": 8,
+    "context_window_size": 1000000,
+    "current_usage": {
+      "input_tokens": 2,
+      "output_tokens": 8,
+      "cache_creation_input_tokens": 1889,
+      "cache_read_input_tokens": 146904
+    },
+    "used_percentage": 15,
+    "remaining_percentage": 85
+  },
+  "exceeds_200k_tokens": false,
+  "prompt_cache": {
+    "warm": true,
+    "caching_observed": true,
+    "ttl": "1h",
+    "expires_at": 4102444800,
+    "requests": 17,
+    "misses": 0,
+    "expected_rebuilds": 0,
+    "hit_ratio": 0.9352718763180601,
+    "cache_write_tokens": 120896,
+    "miss_recache_tokens": 0,
+    "last_miss_at": null,
+    "last_miss_cause": null,
+    "miss_causes": {},
+    "recache_tokens_if_cold": 146906
+  },
+  "fast_mode": false,
+  "thinking": {
+    "enabled": true
+  },
+  "rate_limits": {
+    "five_hour": {
+      "used_percentage": 22,
+      "resets_at": 4102444800
+    },
+    "seven_day": {
+      "used_percentage": 36,
+      "resets_at": 4102444800
+    }
+  }
+}

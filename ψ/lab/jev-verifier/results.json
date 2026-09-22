@@ -1,0 +1,860 @@
+[
+ {
+  "id": "A1",
+  "who": "agy",
+  "gold": "supported",
+  "claim": "The self-consistency cookbook repeats ONE borderline moderation post 15 times.",
+  "supp": [
+   0.84,
+   0.82,
+   0.84
+  ],
+  "contra": [
+   0.08,
+   0.08,
+   0.09
+  ],
+  "choice": [
+   "supported",
+   "supported",
+   "supported"
+  ],
+  "p_supp": [
+   0.98,
+   0.98,
+   0.98
+  ]
+ },
+ {
+  "id": "A2",
+  "who": "agy",
+  "gold": "supported",
+  "claim": "TypeSafe's latency was sampled sequentially after the LLM pool had closed, while the LLMs ran under 16-way thread contention.",
+  "supp": [
+   0.77,
+   0.76,
+   0.77
+  ],
+  "contra": [
+   0.8,
+   0.76,
+   0.79
+  ],
+  "choice": [
+   "contradicted",
+   "supported",
+   "contradicted"
+  ],
+  "p_supp": [
+   0.41,
+   0.5,
+   0.44
+  ]
+ },
+ {
+  "id": "A3a",
+  "who": "agy",
+  "gold": "supported",
+  "claim": "The cookbook's cost figures use historical price assumptions, not verified jev-latest billing amounts.",
+  "supp": [
+   0.93,
+   0.92,
+   0.93
+  ],
+  "contra": [
+   0.05,
+   0.05,
+   0.05
+  ],
+  "choice": [
+   "supported",
+   "supported",
+   "supported"
+  ],
+  "p_supp": [
+   0.98,
+   0.98,
+   0.98
+  ]
+ },
+ {
+  "id": "A3b",
+  "who": "agy",
+  "gold": "not_supported",
+  "claim": "The '444.6x cheaper' headline figure comes from this cookbook's pricing.",
+  "supp": [
+   0.02,
+   0.02,
+   0.03
+  ],
+  "contra": [
+   0.7,
+   0.69,
+   0.7
+  ],
+  "choice": [
+   "not_addressed",
+   "not_addressed",
+   "not_addressed"
+  ],
+  "p_supp": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "id": "A4a",
+  "who": "agy",
+  "gold": "supported",
+  "claim": "TypeSafe's agreement rises to 99.2% only after answers below a 0.60 top probability are sent to human review, leaving 74.2% of answers labelled automatically.",
+  "supp": [
+   0.9,
+   0.9,
+   0.89
+  ],
+  "contra": [
+   0.07,
+   0.07,
+   0.07
+  ],
+  "choice": [
+   "supported",
+   "supported",
+   "supported"
+  ],
+  "p_supp": [
+   0.99,
+   0.99,
+   0.99
+  ]
+ },
+ {
+  "id": "A4b",
+  "who": "agy",
+  "gold": "not_supported",
+  "claim": "The docs conceal that the 99.2% figure leaves out the hardest cases, so the number is artificially inflated.",
+  "supp": [
+   0.11,
+   0.1,
+   0.09
+  ],
+  "contra": [
+   0.57,
+   0.55,
+   0.58
+  ],
+  "choice": [
+   "not_addressed",
+   "not_addressed",
+   "not_addressed"
+  ],
+  "p_supp": [
+   0.01,
+   0.01,
+   0.01
+  ]
+ },
+ {
+  "id": "A5a",
+  "who": "agy",
+  "gold": "supported",
+  "claim": "The cookbook's samples are cached in json_cache.json so re-rendering needs no API spend.",
+  "supp": [
+   0.93,
+   0.93,
+   0.94
+  ],
+  "contra": [
+   0.05,
+   0.06,
+   0.06
+  ],
+  "choice": [
+   "supported",
+   "supported",
+   "supported"
+  ],
+  "p_supp": [
+   1.0,
+   1.0,
+   1.0
+  ]
+ },
+ {
+  "id": "A5b",
+  "who": "agy",
+  "gold": "not_supported",
+  "claim": "Because of the cache, the published numbers do not come from independent live API draws.",
+  "supp": [
+   0.38,
+   0.46,
+   0.35
+  ],
+  "contra": [
+   0.55,
+   0.52,
+   0.57
+  ],
+  "choice": [
+   "supported",
+   "supported",
+   "supported"
+  ],
+  "p_supp": [
+   0.57,
+   0.66,
+   0.58
+  ]
+ },
+ {
+  "id": "A6",
+  "who": "agy",
+  "gold": "not_supported",
+  "claim": "The docs bury that the speed comparison favours TypeSafe, which invalidates the 193.6x faster claim.",
+  "supp": [
+   0.05,
+   0.05,
+   0.06
+  ],
+  "contra": [
+   0.34,
+   0.32,
+   0.33
+  ],
+  "choice": [
+   "not_addressed",
+   "not_addressed",
+   "not_addressed"
+  ],
+  "p_supp": [
+   0.11,
+   0.11,
+   0.19
+  ]
+ },
+ {
+  "id": "A7",
+  "who": "agy",
+  "gold": "supported",
+  "claim": "Jev accepts text only; images, audio and video are not supported.",
+  "supp": [
+   0.9,
+   0.88,
+   0.89
+  ],
+  "contra": [
+   0.04,
+   0.04,
+   0.04
+  ],
+  "choice": [
+   "supported",
+   "supported",
+   "supported"
+  ],
+  "p_supp": [
+   0.99,
+   0.99,
+   0.99
+  ]
+ },
+ {
+  "id": "A8",
+  "who": "agy",
+  "gold": "supported",
+  "claim": "More than a quarter of TypeSafe's answers in that cookbook fall below the 0.60 gate and go to human review.",
+  "supp": [
+   0.22,
+   0.23,
+   0.23
+  ],
+  "contra": [
+   0.63,
+   0.64,
+   0.65
+  ],
+  "choice": [
+   "contradicted",
+   "contradicted",
+   "contradicted"
+  ],
+  "p_supp": [
+   0.2,
+   0.18,
+   0.21
+  ]
+ },
+ {
+  "id": "Z1",
+  "who": "zcode",
+  "gold": "supported",
+  "claim": "Both jev-latest and jev-preview currently resolve to jev-1.13.0.",
+  "supp": [
+   0.98,
+   0.98,
+   0.98
+  ],
+  "contra": [
+   0.03,
+   0.03,
+   0.03
+  ],
+  "choice": [
+   "supported",
+   "supported",
+   "supported"
+  ],
+  "p_supp": [
+   1.0,
+   1.0,
+   1.0
+  ]
+ },
+ {
+  "id": "Z2",
+  "who": "zcode",
+  "gold": "supported",
+  "claim": "The rate limit is 250,000 tokens per second and 1,200 requests per minute.",
+  "supp": [
+   0.98,
+   0.98,
+   0.99
+  ],
+  "contra": [
+   0.02,
+   0.03,
+   0.03
+  ],
+  "choice": [
+   "supported",
+   "supported",
+   "supported"
+  ],
+  "p_supp": [
+   1.0,
+   1.0,
+   1.0
+  ]
+ },
+ {
+  "id": "Z3",
+  "who": "zcode",
+  "gold": "supported",
+  "claim": "Context length is 64k tokens per request, with 32k tokens for the state plus the longest question.",
+  "supp": [
+   0.93,
+   0.92,
+   0.93
+  ],
+  "contra": [
+   0.15,
+   0.16,
+   0.13
+  ],
+  "choice": [
+   "supported",
+   "supported",
+   "supported"
+  ],
+  "p_supp": [
+   0.92,
+   0.89,
+   0.93
+  ]
+ },
+ {
+  "id": "Z4",
+  "who": "zcode",
+  "gold": "supported",
+  "claim": "The Python SDK's DEFAULT_TIMEOUT is 10.0 seconds.",
+  "supp": [
+   0.88,
+   0.9,
+   0.89
+  ],
+  "contra": [
+   0.04,
+   0.03,
+   0.04
+  ],
+  "choice": [
+   "supported",
+   "supported",
+   "supported"
+  ],
+  "p_supp": [
+   0.92,
+   0.92,
+   0.91
+  ]
+ },
+ {
+  "id": "Z5",
+  "who": "zcode",
+  "gold": "supported",
+  "claim": "RetryPolicy.timeout is the total retry budget per SDK call, including the initial attempt and the delays, not a per-attempt timeout.",
+  "supp": [
+   0.96,
+   0.96,
+   0.96
+  ],
+  "contra": [
+   0.04,
+   0.03,
+   0.03
+  ],
+  "choice": [
+   "supported",
+   "supported",
+   "supported"
+  ],
+  "p_supp": [
+   1.0,
+   1.0,
+   1.0
+  ]
+ },
+ {
+  "id": "Z6",
+  "who": "zcode",
+  "gold": "supported",
+  "claim": "Noul answers carry no confidence value.",
+  "supp": [
+   0.94,
+   0.93,
+   0.94
+  ],
+  "contra": [
+   0.04,
+   0.05,
+   0.04
+  ],
+  "choice": [
+   "supported",
+   "supported",
+   "supported"
+  ],
+  "p_supp": [
+   0.99,
+   0.99,
+   0.99
+  ]
+ },
+ {
+  "id": "Z7",
+  "who": "zcode",
+  "gold": "not_supported",
+  "claim": "gate.py hides which exception type made a chunk fail, so authentication errors and bad requests look identical in its output.",
+  "supp": [
+   0.04,
+   0.03,
+   0.03
+  ],
+  "contra": [
+   0.88,
+   0.87,
+   0.88
+  ],
+  "choice": [
+   "contradicted",
+   "contradicted",
+   "contradicted"
+  ],
+  "p_supp": [
+   0.0,
+   0.01,
+   0.0
+  ]
+ },
+ {
+  "id": "Z8",
+  "who": "zcode",
+  "gold": "supported",
+  "claim": "AI_GATEWAY_API_KEY is not one of the SDK's documented environment variables.",
+  "supp": [
+   0.76,
+   0.8,
+   0.76
+  ],
+  "contra": [
+   0.07,
+   0.06,
+   0.06
+  ],
+  "choice": [
+   "supported",
+   "supported",
+   "supported"
+  ],
+  "p_supp": [
+   0.97,
+   0.97,
+   0.97
+  ]
+ },
+ {
+  "id": "Z9",
+  "who": "zcode",
+  "gold": "supported",
+  "claim": "The jaggedness page lists adversarial content as a known failure mode of jev-1.13.",
+  "supp": [
+   0.34,
+   0.42,
+   0.4
+  ],
+  "contra": [
+   0.17,
+   0.14,
+   0.17
+  ],
+  "choice": [
+   "not_addressed",
+   "supported",
+   "not_addressed"
+  ],
+  "p_supp": [
+   0.44,
+   0.52,
+   0.42
+  ]
+ },
+ {
+  "id": "P1",
+  "who": "planted",
+  "gold": "not_supported",
+  "claim": "Jev accepts image and audio input in addition to text.",
+  "supp": [
+   0.01,
+   0.01,
+   0.01
+  ],
+  "contra": [
+   0.98,
+   0.98,
+   0.98
+  ],
+  "choice": [
+   "contradicted",
+   "contradicted",
+   "contradicted"
+  ],
+  "p_supp": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "id": "P2",
+  "who": "planted",
+  "gold": "not_supported",
+  "claim": "The rate limit is 100 requests per minute.",
+  "supp": [
+   0.01,
+   0.01,
+   0.01
+  ],
+  "contra": [
+   0.96,
+   0.97,
+   0.97
+  ],
+  "choice": [
+   "contradicted",
+   "contradicted",
+   "contradicted"
+  ],
+  "p_supp": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "id": "P3",
+  "who": "planted",
+  "gold": "not_supported",
+  "claim": "Noul answers include a confidence field.",
+  "supp": [
+   0.03,
+   0.03,
+   0.03
+  ],
+  "contra": [
+   0.95,
+   0.95,
+   0.95
+  ],
+  "choice": [
+   "contradicted",
+   "contradicted",
+   "contradicted"
+  ],
+  "p_supp": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "id": "P4",
+  "who": "planted",
+  "gold": "not_supported",
+  "claim": "The Python SDK's default timeout is 60 seconds.",
+  "supp": [
+   0.01,
+   0.01,
+   0.01
+  ],
+  "contra": [
+   0.97,
+   0.97,
+   0.97
+  ],
+  "choice": [
+   "contradicted",
+   "contradicted",
+   "contradicted"
+  ],
+  "p_supp": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "id": "P5",
+  "who": "planted",
+  "gold": "not_supported",
+  "claim": "Output tokens are billed at the same $0.042 per million as input tokens.",
+  "supp": [
+   0.01,
+   0.01,
+   0.01
+  ],
+  "contra": [
+   0.97,
+   0.97,
+   0.97
+  ],
+  "choice": [
+   "contradicted",
+   "contradicted",
+   "contradicted"
+  ],
+  "p_supp": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "id": "P6",
+  "who": "planted",
+  "gold": "not_supported",
+  "claim": "jev-preview points to an older model than jev-latest.",
+  "supp": [
+   0.02,
+   0.01,
+   0.01
+  ],
+  "contra": [
+   0.95,
+   0.94,
+   0.95
+  ],
+  "choice": [
+   "contradicted",
+   "contradicted",
+   "contradicted"
+  ],
+  "p_supp": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "id": "P7",
+  "who": "planted",
+  "gold": "supported",
+  "claim": "Only input tokens are charged; output tokens are free.",
+  "supp": [
+   0.97,
+   0.96,
+   0.96
+  ],
+  "contra": [
+   0.04,
+   0.04,
+   0.04
+  ],
+  "choice": [
+   "supported",
+   "supported",
+   "supported"
+  ],
+  "p_supp": [
+   1.0,
+   1.0,
+   1.0
+  ]
+ },
+ {
+  "id": "P8",
+  "who": "planted",
+  "gold": "supported",
+  "claim": "The model cannot reliably count characters or occurrences of a term.",
+  "supp": [
+   0.93,
+   0.93,
+   0.94
+  ],
+  "contra": [
+   0.03,
+   0.03,
+   0.03
+  ],
+  "choice": [
+   "supported",
+   "supported",
+   "supported"
+  ],
+  "p_supp": [
+   1.0,
+   1.0,
+   1.0
+  ]
+ },
+ {
+  "id": "S1",
+  "who": "subtle",
+  "gold": "not_supported",
+  "claim": "The rate limit is 1,200 tokens per second and 250,000 requests per minute.",
+  "supp": [
+   0.01,
+   0.01,
+   0.01
+  ],
+  "contra": [
+   0.96,
+   0.96,
+   0.96
+  ],
+  "choice": [
+   "contradicted",
+   "contradicted",
+   "contradicted"
+  ],
+  "p_supp": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "id": "S2",
+  "who": "subtle",
+  "gold": "not_supported",
+  "claim": "Context length is 32k tokens per request, with 64k tokens for the state plus the longest question.",
+  "supp": [
+   0.23,
+   0.31,
+   0.44
+  ],
+  "contra": [
+   0.81,
+   0.79,
+   0.78
+  ],
+  "choice": [
+   "contradicted",
+   "contradicted",
+   "contradicted"
+  ],
+  "p_supp": [
+   0.16,
+   0.22,
+   0.3
+  ]
+ },
+ {
+  "id": "S3",
+  "who": "subtle",
+  "gold": "not_supported",
+  "claim": "RetryPolicy.timeout is a per-attempt timeout that restarts for every retry.",
+  "supp": [
+   0.01,
+   0.02,
+   0.02
+  ],
+  "contra": [
+   0.95,
+   0.95,
+   0.95
+  ],
+  "choice": [
+   "contradicted",
+   "contradicted",
+   "contradicted"
+  ],
+  "p_supp": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ },
+ {
+  "id": "S4",
+  "who": "subtle",
+  "gold": "not_supported",
+  "claim": "TypeSafe's agreement rises to 99.2% once answers below a 0.06 top probability are sent to human review, leaving 74.2% labelled automatically.",
+  "supp": [
+   0.78,
+   0.59,
+   0.75
+  ],
+  "contra": [
+   0.15,
+   0.16,
+   0.19
+  ],
+  "choice": [
+   "supported",
+   "supported",
+   "supported"
+  ],
+  "p_supp": [
+   0.55,
+   0.58,
+   0.56
+  ]
+ },
+ {
+  "id": "S5",
+  "who": "subtle",
+  "gold": "not_supported",
+  "claim": "Choice answers carry no confidence value, while Noul answers do.",
+  "supp": [
+   0.02,
+   0.03,
+   0.02
+  ],
+  "contra": [
+   0.95,
+   0.95,
+   0.95
+  ],
+  "choice": [
+   "contradicted",
+   "contradicted",
+   "contradicted"
+  ],
+  "p_supp": [
+   0.0,
+   0.0,
+   0.0
+  ]
+ }
+]
