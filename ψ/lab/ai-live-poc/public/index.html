@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>ai-live-poc</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #0d1117;
+    color: #e6edf3;
+    font-family: -apple-system, "Segoe UI", sans-serif;
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  #stage {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    background: radial-gradient(circle at 50% 35%, #1c2530 0%, #0d1117 70%);
+  }
+
+  #status {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    font-size: 13px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #21262d;
+    color: #8b949e;
+  }
+  #status.live { color: #3fb950; }
+
+  #avatar {
+    width: 220px;
+    height: 220px;
+    animation: bob 3.2s ease-in-out infinite;
+  }
+  @keyframes bob {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+  }
+
+  #eye-left, #eye-right {
+    animation: blink 4.5s infinite;
+    transform-origin: center;
+  }
+  @keyframes blink {
+    0%, 92%, 100% { transform: scaleY(1); }
+    95% { transform: scaleY(0.08); }
+  }
+
+  #mouth {
+    transform: scaleY(0.15);
+    transform-origin: 100px 145px;
+    transition: transform 60ms linear;
+  }
+
+  #subtitle {
+    margin-top: 28px;
+    min-height: 3.2em;
+    max-width: 480px;
+    text-align: center;
+    font-size: 18px;
+    line-height: 1.5;
+    color: #e6edf3;
+  }
+  #subtitle .viewer { color: #58a6ff; font-size: 13px; display: block; margin-bottom: 4px; }
+
+  #start-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(13, 17, 23, 0.92);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+  }
+  #start-overlay button {
+    background: #238636;
+    color: white;
+    border: none;
+    padding: 14px 28px;
+    font-size: 16px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  #start-overlay button:hover { background: #2ea043; }
+
+  #feed {
+    width: 340px;
+    border-left: 1px solid #21262d;
+    padding: 16px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-size: 13px;
+  }
+  #feed h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: #8b949e; margin: 0 0 4px; }
+
+  .entry { border-radius: 8px; padding: 8px 10px; background: #161b22; }
+  .entry .who { color: #58a6ff; font-weight: 600; }
+  .entry .text { color: #c9d1d9; margin-top: 2px; }
+  .entry.reply .text { color: #7ee787; }
+  .entry.blocked { opacity: 0.55; }
+  .entry.blocked .who { color: #f85149; }
+  .entry .tag {
+    display: inline-block;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: #30363d;
+    color: #8b949e;
+    margin-left: 6px;
+  }
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <div id="status">connecting…</div>
+
+  <svg id="avatar" viewBox="0 0 200 200">
+    <circle cx="100" cy="100" r="92" fill="#1f6feb" opacity="0.15"/>
+    <circle cx="100" cy="100" r="70" fill="#f0d9b5"/>
+    <ellipse id="eye-left" cx="75" cy="90" rx="7" ry="9" fill="#1c2530"/>
+    <ellipse id="eye-right" cx="125" cy="90" rx="7" ry="9" fill="#1c2530"/>
+    <ellipse id="mouth" cx="100" cy="145" rx="26" ry="14" fill="#8a3b2b"/>
+  </svg>
+
+  <div id="subtitle">รอผู้ชมทักมาค่ะ…</div>
+
+  <audio id="player" preload="auto"></audio>
+
+  <div id="start-overlay">
+    <button id="start-btn">▶ เริ่มไลฟ์ (เปิดเสียง)</button>
+  </div>
+</div>
+
+<div id="feed">
+  <h2>Chat</h2>
+  <div id="feed-list"></div>
+</div>
+
+<script>
+const statusEl = document.getElementById("status");
+const subtitleEl = document.getElementById("subtitle");
+const mouthEl = document.getElementById("mouth");
+const feedList = document.getElementById("feed-list");
+const player = document.getElementById("player");
+const startOverlay = document.getElementById("start-overlay");
+const startBtn = document.getElementById("start-btn");
+
+let audioCtx, analyser, dataArray, sourceNode;
+let rafId = null;
+
+function setupAudioGraph() {
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  sourceNode = audioCtx.createMediaElementSource(player);
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 256;
+  dataArray = new Uint8Array(analyser.fftSize);
+  sourceNode.connect(analyser);
+  analyser.connect(audioCtx.destination);
+}
+
+function animateMouth() {
+  analyser.getByteTimeDomainData(dataArray);
+  let sumSquares = 0;
+  for (let i = 0; i < dataArray.length; i++) {
+    const v = (dataArray[i] - 128) / 128;
+    sumSquares += v * v;
+  }
+  const rms = Math.sqrt(sumSquares / dataArray.length);
+  const openness = Math.min(1, 0.15 + rms * 6);
+  mouthEl.style.transform = `scaleY(${openness.toFixed(3)})`;
+  rafId = requestAnimationFrame(animateMouth);
+}
+
+function stopMouth() {
+  if (rafId) cancelAnimationFrame(rafId);
+  rafId = null;
+  mouthEl.style.transform = "scaleY(0.15)";
+}
+
+player.addEventListener("play", () => {
+  if (audioCtx.state === "suspended") audioCtx.resume();
+  animateMouth();
+});
+player.addEventListener("ended", stopMouth);
+player.addEventListener("pause", stopMouth);
+
+function addFeedEntry({ who, text, tag, kind }) {
+  const div = document.createElement("div");
+  div.className = "entry" + (kind === "reply" ? " reply" : "") + (kind === "blocked" ? " blocked" : "");
+  div.innerHTML = `<span class="who">${who}</span>${tag ? `<span class="tag">${tag}</span>` : ""}<div class="text">${text}</div>`;
+  feedList.appendChild(div);
+  feedList.scrollTop = feedList.scrollHeight;
+}
+
+function handleEvent(event) {
+  if (event.type === "spoken") {
+    addFeedEntry({ who: event.viewer, text: event.text, kind: "comment" });
+    addFeedEntry({ who: "AI host", text: event.reply, tag: "spoken", kind: "reply" });
+    subtitleEl.innerHTML = `<span class="viewer">${event.viewer}: ${event.text}</span>${event.reply}`;
+    player.src = `/audio/${event.audio_file}`;
+    player.play().catch(() => {});
+  } else if (event.type === "dropped_inbound") {
+    addFeedEntry({ who: event.viewer, text: event.text, tag: `blocked: ${event.verdict}`, kind: "blocked" });
+  } else if (event.type === "dropped_outbound") {
+    addFeedEntry({ who: event.viewer, text: event.text, kind: "comment" });
+    addFeedEntry({ who: "AI host", text: event.reply, tag: `blocked: ${event.verdict}`, kind: "blocked" });
+  } else if (event.type === "throttled") {
+    addFeedEntry({ who: event.viewer, text: event.text, tag: "throttled", kind: "blocked" });
+  }
+}
+
+function connect() {
+  const es = new EventSource("/events");
+  es.onopen = () => { statusEl.textContent = "● live"; statusEl.classList.add("live"); };
+  es.onerror = () => { statusEl.textContent = "reconnecting…"; statusEl.classList.remove("live"); };
+  es.onmessage = (msg) => handleEvent(JSON.parse(msg.data));
+}
+
+startBtn.addEventListener("click", () => {
+  setupAudioGraph();
+  audioCtx.resume();
+  startOverlay.remove();
+  connect();
+});
+</script>
+</body>
+</html>
