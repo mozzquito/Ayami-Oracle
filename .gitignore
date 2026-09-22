@@ -26,6 +26,10 @@ dist/
 .chromadb/
 chroma_data/
 
+# Python
+__pycache__/
+*.pyc
+
 # Temp directories
 tmp/
 .tmp/
