@@ -1,3 +1,3 @@
-STATE: pending
-TASK: fix/token-reduction PR #6 opened, awaiting มอส review
-SINCE: 11:04
+STATE: completed
+TASK: sendgrid runbook moved to private evisa repo
+SINCE: 11:07
