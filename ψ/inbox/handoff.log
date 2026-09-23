@@ -86,3 +86,14 @@
   41fdb486 memory+skills: session-board patch, jev-skill retro, manual-html retro, scope-lesson
   46165c10 docs: add Ayami Oracle + Moss HTML/Markdown manuals
 
+
+---
+## 2026-09-23 10:58 | 250k
+
+**Focus**: TASK: Q&A — how to check MPLS network from a VM (no code changes)
+
+**Commits**:
+  858a8656 feat: ai-live-poc — local AI digital-human live streaming POC
+  fc03ec76 lab/grok-live-watch: log more launchd poll runs
+  8ffd52bd memory/inbox: video-OCR eVisa retro + learnings, grok-live-watch handoff, pending list update
+
