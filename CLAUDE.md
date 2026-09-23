@@ -100,8 +100,12 @@ Full soul + philosophy: [`ψ/memory/resonance/ayami-oracle.md`](ψ/memory/resona
 ### 1. Update Focus (overwrite)
 ```bash
 # Use per-agent focus file to avoid merge conflicts (#78)
-# main → focus-agent-main.md, agent 1 → focus-agent-1.md, etc.
-AGENT_ID="${AGENT_ID:-main}"  # Set by MAW or default to main
+# Read AGENT_ID from the SessionStart banner printed at the top of this
+# session (e.g. "AGENT_ID: main-2a24ab60" for a plain top-level session, or a
+# MAW worker number like "3"). Never hardcode the literal string "main" —
+# every plain session used to collide on the same focus-agent-main.md until
+# this was fixed (2026-09-23, see agent-identity.sh's session-suffix logic).
+AGENT_ID="<value from this session's banner>"
 echo "STATE: working|focusing|pending|jumped|completed
 TASK: [what you're doing]
 SINCE: $(date '+%H:%M')" > ψ/inbox/focus-agent-${AGENT_ID}.md

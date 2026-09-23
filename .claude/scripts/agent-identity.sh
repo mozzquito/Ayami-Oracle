@@ -5,6 +5,18 @@
 ROOT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}"
 export MAW_REPO_ROOT="$ROOT"
 
+# Short session-ID suffix for plain top-level sessions. Without this, every
+# concurrent plain session reports AGENT_ID=main and collides on the same
+# ψ/inbox/focus-agent-main.md (observed directly, 2026-09-23 — 5+ concurrent
+# sessions overwriting each other's focus file and handoff.log entries).
+# MAW worker IDs (agents/N) already don't collide, so they're untouched.
+SESSION_SHORT="unknown"
+if [ ! -t 0 ] && command -v jq >/dev/null 2>&1; then
+  HOOK_INPUT=$(cat 2>/dev/null)
+  SID=$(printf '%s' "$HOOK_INPUT" | jq -r '.session_id // empty' 2>/dev/null)
+  [ -n "$SID" ] && SESSION_SHORT="${SID:0:8}"
+fi
+
 # Colors: 1=Yellow 2=Magenta 3=Green 4=Cyan 5=Red Main=Blue
 YELLOW='\033[0;33m'
 MAGENTA='\033[0;35m'
@@ -29,7 +41,7 @@ if [[ "$PWD" =~ $ROOT/agents/([0-9]+)$ ]]; then
     *) COLOR=$NC ;;
   esac
 elif [[ "$PWD" == "$ROOT" ]]; then
-  AGENT_ID="main"
+  AGENT_ID="main-${SESSION_SHORT}"
   AGENT_TYPE="orchestrator"
   BRANCH="main"
   COLOR=$BLUE

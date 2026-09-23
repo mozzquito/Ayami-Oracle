@@ -39,6 +39,8 @@ command -v jq >/dev/null 2>&1 || exit 0
 INPUT=$(cat)
 TRANSCRIPT=$(printf '%s' "$INPUT" | jq -r '.transcript_path // empty' 2>/dev/null)
 [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ] || exit 0
+SESSION_SHORT=$(printf '%s' "$INPUT" | jq -r '.session_id // empty' 2>/dev/null | cut -c1-8)
+[ -n "$SESSION_SHORT" ] || SESSION_SHORT="unknown"
 
 # Context size = input + cache-write + cache-read of the last real assistant turn.
 # A compact_boundary after it means that number is stale, so stay silent until the next turn.
@@ -69,14 +71,22 @@ if [ "$used_k" -ge "$HARD_K" ]; then
   fi
   HANDOFF_LOG="$ROOT/ψ/inbox/handoff.log"
 
-  # Already logged within the last hour? Then just show status.
+  # Already logged within the last hour BY THIS SAME SESSION? Then just show
+  # status. Scoped per-session (not globally) so a sibling session's recent
+  # entry can't suppress this session's own hard-limit handoff — with
+  # concurrent sessions, a global check meant sibling A's log entry silenced
+  # sibling B's, even though B never got its own handoff written.
   if [ -f "$HANDOFF_LOG" ]; then
-    LAST_ENTRY=$(grep -E "^## [0-9]{4}-[0-9]{2}-[0-9]{2}" "$HANDOFF_LOG" | tail -1 | cut -d'|' -f1 | sed 's/## //')
-    if [ -n "$LAST_ENTRY" ]; then
-      LAST_TS=$(date -j -f "%Y-%m-%d %H:%M " "$LAST_ENTRY " +%s 2>/dev/null || echo 0)
+    LAST_OWN_ENTRY=$(awk -v sid="$SESSION_SHORT" '
+      /^## [0-9]{4}-[0-9]{2}-[0-9]{2}/ { header=$0; is_mine=0 }
+      /^\*\*Session\*\*:/ { if (index($0, sid) > 0) is_mine=1 }
+      /^\*\*Focus\*\*:/ && is_mine { print header }
+    ' "$HANDOFF_LOG" | tail -1 | cut -d'|' -f1 | sed 's/## //')
+    if [ -n "$LAST_OWN_ENTRY" ]; then
+      LAST_TS=$(date -j -f "%Y-%m-%d %H:%M " "$LAST_OWN_ENTRY " +%s 2>/dev/null || echo 0)
       DIFF=$(($(date +%s) - LAST_TS))
       if [ "$DIFF" -lt 3600 ]; then
-        echo "🚨 CONTEXT ${used_k}k (limit ${HARD_K}k) - Tell มอส now and suggest \`/forward\` + a fresh session before more work. (handoff logged $((DIFF / 60))m ago)"
+        echo "🚨 CONTEXT ${used_k}k (limit ${HARD_K}k) - Tell มอส now and suggest \`/forward\` + a fresh session before more work. (this session's handoff logged $((DIFF / 60))m ago)"
         exit 0
       fi
     fi
@@ -85,7 +95,11 @@ if [ "$used_k" -ge "$HARD_K" ]; then
   echo "🚨 CONTEXT ${used_k}k (limit ${HARD_K}k) - Tell มอส now and suggest \`/forward\` + a fresh session before more work. Every turn re-reads all ${used_k}k. Handoff logged to ψ/inbox/handoff.log"
 
   RECENT_COMMITS=$(git -C "$ROOT" log --oneline -3 2>/dev/null | sed 's/^/  /')
-  FOCUS=$(grep "TASK:" "$ROOT/ψ/inbox/focus-agent-main.md" 2>/dev/null | head -1)
+  # Most recently modified focus file, regardless of which session wrote it
+  # (naming now includes a session suffix — see agent-identity.sh — so there
+  # is no single fixed filename to read anymore). Best-effort/cosmetic field.
+  LATEST_FOCUS_FILE=$(ls -t "$ROOT"/ψ/inbox/focus-agent-*.md 2>/dev/null | head -1)
+  FOCUS=$([ -n "$LATEST_FOCUS_FILE" ] && grep "TASK:" "$LATEST_FOCUS_FILE" 2>/dev/null | head -1)
   [ -n "$FOCUS" ] || FOCUS="(no focus set)"
 
   mkdir -p "$(dirname "$HANDOFF_LOG")" 2>/dev/null
@@ -94,6 +108,7 @@ if [ "$used_k" -ge "$HARD_K" ]; then
     echo "---"
     echo "## $(date '+%Y-%m-%d %H:%M') | ${used_k}k"
     echo ""
+    echo "**Session**: $SESSION_SHORT"
     echo "**Focus**: $FOCUS"
     echo ""
     echo "**Commits**:"
