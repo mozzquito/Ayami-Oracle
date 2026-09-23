@@ -9,3 +9,18 @@ run: no changes
 3 open positions, above the snapshot's max concurrent ~2 — either the live strategy has changed or the snapshot is stale.
 3 open positions, above the snapshot's max concurrent ~2 — either the live strategy has changed or the snapshot is stale.
 TRXUSDT: -1.55%, well past the snapshot's ~-1.0% SL without having closed — worth a look.
+3 open positions, above the snapshot's max concurrent ~2 — either the live strategy has changed or the snapshot is stale.
+TRXUSDT: -1.67%, well past the snapshot's ~-1.0% SL without having closed — worth a look.
+3 open positions, above the snapshot's max concurrent ~2 — either the live strategy has changed or the snapshot is stale.
+TRXUSDT: -1.67%, well past the snapshot's ~-1.0% SL without having closed — worth a look.
+3 open positions, above the snapshot's max concurrent ~2 — either the live strategy has changed or the snapshot is stale.
+TRXUSDT: -1.67%, well past the snapshot's ~-1.0% SL without having closed — worth a look.
+run: crashed: 400 Client Error: Bad Request for url: https://api.binance.th/api/v1/accountV2?timestamp=1790091717492&recvWindow=5000&signature=21a2892a66f92424f5ea5064dccd1c7cc9a8e8eb68c13c04e4767f0e2cff16f6
+3 open positions, above the snapshot's max concurrent ~2 — either the live strategy has changed or the snapshot is stale.
+TRXUSDT: -1.64%, well past the snapshot's ~-1.0% SL without having closed — worth a look.
+3 open positions, above the snapshot's max concurrent ~2 — either the live strategy has changed or the snapshot is stale.
+TRXUSDT: -1.79%, well past the snapshot's ~-1.0% SL without having closed — worth a look.
+3 open positions, above the snapshot's max concurrent ~2 — either the live strategy has changed or the snapshot is stale.
+TRXUSDT: -1.90%, well past the snapshot's ~-1.0% SL without having closed — worth a look.
+3 open positions, above the snapshot's max concurrent ~2 — either the live strategy has changed or the snapshot is stale.
+TRXUSDT: -1.76%, well past the snapshot's ~-1.0% SL without having closed — worth a look.
