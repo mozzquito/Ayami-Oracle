@@ -122,13 +122,39 @@ def poll_once(
         asset = symbol[: -len(QUOTE_ASSET)]
         qty = raw.get(asset, 0.0)
 
-        if qty <= DUST_QTY_ABS:
+        # A market SELL leaves rounding dust behind (live 2026-09-22: TRX 28.6 sold of 28.7,
+        # 0.093 left), so "qty went to zero" alone never fired and the position stayed tracked
+        # forever — false "3 open positions" / "past SL" alerts. A tracked position also
+        # closes once its value drops under MIN_POSITION_USD, but only when the price is
+        # actually known: a failed price lookup still keeps it (see docstring's false-close bug).
+        current_price = _safe_price(client, symbol) if qty > DUST_QTY_ABS else None
+        is_dust = current_price is not None and qty * current_price < MIN_POSITION_USD
+
+        if qty <= DUST_QTY_ABS or is_dust:
             trades = _safe_trades(client, symbol)
             exit_trade = _latest_by_side(trades, is_buy=False)
+            # A sell-then-buy between our last-seen trade and this exit means round trips we
+            # never saw (e.g. a gap in polling), so prior entry_price is not this exit's entry
+            # and a pnl from it would be fiction (live 2026-09-25: DOGE showed a bogus -5.42%).
+            # Extra buy fills with no sell before them are just split fills / scale-ins, and a
+            # buy *after* the exit is a later re-entry — neither invalidates this close's pnl.
+            missed_round_trip = False
+            if exit_trade is not None:
+                window = sorted(
+                    (t for t in trades if prior_pos.last_trade_id < t["id"] < exit_trade["id"]),
+                    key=lambda t: t["id"],
+                )
+                seen_sell = False
+                for t in window:
+                    if not t.get("isBuyer"):
+                        seen_sell = True
+                    elif seen_sell:
+                        missed_round_trip = True
+                        break
             if exit_trade:
                 exit_price = float(exit_trade["price"])
                 pnl_pct = None
-                if prior_pos.entry_price:
+                if prior_pos.entry_price and not missed_round_trip:
                     pnl_pct = (exit_price - prior_pos.entry_price) / prior_pos.entry_price * 100.0
                 pnl_str = f", pnl≈{pnl_pct:+.2f}%" if pnl_pct is not None else ""
                 lines.append(f"🔴 Closed {symbol}: exit≈{exit_price:.6f}{pnl_str}")
@@ -151,15 +177,45 @@ def poll_once(
             lines.append(f"🔵 New fill {symbol}: {side} qty={fill['qty']} @ {fill['price']}")
         last_trade_id = new_fills[-1]["id"] if new_fills else prior_pos.last_trade_id
 
+        # Closed and re-entered since we last looked (the exit sell left dust, so the balance
+        # never hit zero): reset entry and age from the new buy. Decided by reconstructing what
+        # was held just *before* the latest new buy from fill quantities — dust then means a
+        # fresh position; a real balance then means a scale-in on a still-open position, which
+        # must keep its cost basis. Works even when the exit sell was already consumed by an
+        # earlier poll. Live 2026-09-25: ETH kept its 09-22 entry 2750.36 after a 09-23 exit and
+        # 09-25 re-buy at 2691.59, firing a false "-2.53% past SL" alert.
+        entry_price = prior_pos.entry_price
+        opened_at = prior_pos.opened_at
+        last_buy = _latest_by_side(new_fills, is_buy=True)
+        if last_buy is not None:
+            bought_since = sum(
+                float(t["qty"]) for t in trades if t.get("isBuyer") and t["id"] >= last_buy["id"]
+            )
+            sold_since = sum(
+                float(t["qty"])
+                for t in trades
+                if not t.get("isBuyer") and t["id"] > last_buy["id"]
+            )
+            held_before = max(qty - bought_since + sold_since, 0.0)
+            buy_price = float(last_buy["price"])
+            if held_before * buy_price < MIN_POSITION_USD:
+                entry_price = buy_price
+                opened_at = (
+                    datetime.fromtimestamp(int(last_buy["time"]) / 1000, timezone.utc).isoformat()
+                    if "time" in last_buy
+                    else now
+                )
+                lines.append(f"🟢 Re-opened {symbol}: new entry @ ~{entry_price:.6f}")
+
         updated = PositionState(
             symbol=symbol,
-            opened_at=prior_pos.opened_at,
-            entry_price=prior_pos.entry_price,
+            opened_at=opened_at,
+            entry_price=entry_price,
             last_trade_id=last_trade_id,
             last_alerted_stale_at=prior_pos.last_alerted_stale_at,
         )
 
-        age = datetime.now(timezone.utc) - _parse_iso(prior_pos.opened_at)
+        age = datetime.now(timezone.utc) - _parse_iso(opened_at)
         if age > STALE_AFTER:
             last_alert = (
                 _parse_iso(prior_pos.last_alerted_stale_at)
@@ -174,7 +230,6 @@ def poll_once(
                 updated.last_alerted_stale_at = now
 
         new_positions[symbol] = updated
-        current_price = _safe_price(client, symbol)
         if current_price is not None:
             live_positions.append(LivePosition(symbol, updated.entry_price, current_price))
 

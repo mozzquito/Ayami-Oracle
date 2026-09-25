@@ -321,3 +321,148 @@ def test_trade_id_as_string_from_api_does_not_crash_comparison() -> None:
     result = poll_once(client, prior)
 
     assert result.state.positions["BTCUSDT"].last_trade_id == 2
+
+
+def _tracked(symbol: str, entry: float, last_id: int) -> MonitorState:
+    return MonitorState(
+        positions={
+            symbol: PositionState(
+                symbol=symbol,
+                opened_at=datetime.now(timezone.utc).isoformat(),
+                entry_price=entry,
+                last_trade_id=last_id,
+            )
+        }
+    )
+
+
+def test_sell_leaving_rounding_dust_closes_the_position() -> None:
+    """Live 2026-09-25: TRX sold 28.6 of 28.7, 0.093 (~$0.03) left behind. The old
+    qty<=1e-8 rule never closed it, producing false '3 open positions' / 'past SL' alerts."""
+    client = FakeClient(
+        balances=[{"asset": "TRX", "free": "0.0931", "locked": "0"}],
+        prices={"TRXUSDT": 0.3437},
+        trades={"TRXUSDT": [{"id": 8, "price": "0.3437", "qty": "28.6", "isBuyer": False}]},
+    )
+    result = poll_once(client, _tracked("TRXUSDT", 0.3473, 7))
+
+    assert "TRXUSDT" not in result.state.positions
+    assert any("Closed TRXUSDT" in line and "pnl≈-1.04%" in line for line in result.lines)
+
+
+def test_dust_leftover_with_price_failure_is_kept_not_closed() -> None:
+    """Price-failure safety still holds for the new dust rule: no price, no close."""
+    client = FakeClient(
+        balances=[{"asset": "TRX", "free": "0.0931", "locked": "0"}],
+        prices={},
+        trades={},
+    )
+    result = poll_once(client, _tracked("TRXUSDT", 0.3473, 7))
+
+    assert "TRXUSDT" in result.state.positions
+    assert not any("Closed" in line for line in result.lines)
+
+
+def test_real_position_above_min_usd_stays_tracked() -> None:
+    client = FakeClient(
+        balances=[{"asset": "ETH", "free": "0.00378", "locked": "0"}],
+        prices={"ETHUSDT": 2690.0},
+        trades={},
+    )
+    result = poll_once(client, _tracked("ETHUSDT", 2691.59, 5))
+
+    assert "ETHUSDT" in result.state.positions
+    assert not any("Closed" in line for line in result.lines)
+
+
+def test_exit_and_reentry_between_polls_resets_entry_price() -> None:
+    """Live 2026-09-25: ETH exited 09-23 (dust left) and re-bought 09-25 @2691.59; the
+    monitor kept the old 2750.36 entry and raised a false '-2.53% past SL' alert."""
+    buy_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    client = FakeClient(
+        balances=[{"asset": "ETH", "free": "0.003781", "locked": "0"}],
+        prices={"ETHUSDT": 2683.0},
+        trades={
+            "ETHUSDT": [
+                {"id": 6, "price": "2719.98", "qty": "0.0036", "isBuyer": False},
+                {"id": 7, "price": "2691.59", "qty": "0.0037", "isBuyer": True, "time": buy_ms},
+            ]
+        },
+    )
+    result = poll_once(client, _tracked("ETHUSDT", 2750.36, 5))
+
+    pos = result.state.positions["ETHUSDT"]
+    assert pos.entry_price == 2691.59
+    assert pos.last_trade_id == 7
+    assert any("Re-opened ETHUSDT" in line for line in result.lines)
+    assert not any("past the snapshot" in line for line in result.lines)
+
+
+def test_close_after_missed_round_trips_does_not_invent_pnl() -> None:
+    client = FakeClient(
+        balances=[{"asset": "DOGE", "free": "0.289", "locked": "0"}],
+        prices={"DOGEUSDT": 0.0945},
+        trades={
+            "DOGEUSDT": [
+                {"id": 6, "price": "0.1017", "qty": "100", "isBuyer": False},
+                {"id": 7, "price": "0.0957", "qty": "104", "isBuyer": True},
+                {"id": 8, "price": "0.0945", "qty": "104", "isBuyer": False},
+            ]
+        },
+    )
+    result = poll_once(client, _tracked("DOGEUSDT", 0.09986, 5))
+
+    closed = next(line for line in result.lines if "Closed DOGEUSDT" in line)
+    assert "pnl" not in closed
+
+
+def test_reentry_detected_when_exit_was_consumed_by_an_earlier_poll() -> None:
+    """Exit sell seen in poll N (kept: price lookup failed), re-buy lands in poll N+1 —
+    the new fills alone contain no sell, but the pre-buy holding was dust."""
+    client = FakeClient(
+        balances=[{"asset": "ETH", "free": "0.003781", "locked": "0"}],
+        prices={"ETHUSDT": 2683.0},
+        trades={
+            "ETHUSDT": [
+                {"id": 6, "price": "2719.98", "qty": "0.0036", "isBuyer": False},
+                {"id": 7, "price": "2691.59", "qty": "0.0037", "isBuyer": True},
+            ]
+        },
+    )
+    result = poll_once(client, _tracked("ETHUSDT", 2750.36, 6))  # sell 6 already seen
+
+    assert result.state.positions["ETHUSDT"].entry_price == 2691.59
+
+
+def test_partial_sell_then_scale_in_keeps_cost_basis() -> None:
+    client = FakeClient(
+        balances=[{"asset": "ETH", "free": "0.0060", "locked": "0"}],
+        prices={"ETHUSDT": 2700.0},
+        trades={
+            "ETHUSDT": [
+                {"id": 6, "price": "2720.0", "qty": "0.0010", "isBuyer": False},
+                {"id": 7, "price": "2690.0", "qty": "0.0020", "isBuyer": True},
+            ]
+        },
+    )
+    result = poll_once(client, _tracked("ETHUSDT", 2750.0, 5))
+
+    assert result.state.positions["ETHUSDT"].entry_price == 2750.0
+    assert not any("Re-opened" in line for line in result.lines)
+
+
+def test_split_entry_fills_do_not_suppress_exit_pnl() -> None:
+    client = FakeClient(
+        balances=[],
+        prices={},
+        trades={
+            "DOGEUSDT": [
+                {"id": 6, "price": "0.1000", "qty": "50", "isBuyer": True},  # late split fill
+                {"id": 7, "price": "0.1015", "qty": "100", "isBuyer": False},
+            ]
+        },
+    )
+    result = poll_once(client, _tracked("DOGEUSDT", 0.1000, 5))
+
+    closed = next(line for line in result.lines if "Closed DOGEUSDT" in line)
+    assert "pnl≈+1.50%" in closed
